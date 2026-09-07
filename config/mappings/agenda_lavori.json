@@ -1,0 +1,59 @@
+{
+  "table": {
+    "db2": "DTPT03.ADCTET17",
+    "sqlserver": "AgendaLavori"
+  },
+  "columns": {
+    "sede": {
+      "db2": "CSED",
+      "sqlserver": "Sede",
+      "logical_type": "string",
+      "padding": true
+    },
+    "zona": {
+      "db2": "CZON",
+      "sqlserver": "Zona",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codCentro": {
+      "db2": "CCOP",
+      "sqlserver": "CodCentro",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codServizio": {
+      "db2": "CDAS",
+      "sqlserver": "CodServizio",
+      "logical_type": "string",
+      "padding": true
+    },
+    "dataPre": {
+      "db2": "DPRE",
+      "sqlserver": "DataPre",
+      "logical_type": "date"
+    },
+    "areaCom": {
+      "db2": "SARELAV",
+      "sqlserver": "AreaCom",
+      "logical_type": "string",
+      "padding": true
+    },
+    "numRighe": {
+      "db2": "NRIG",
+      "sqlserver": "NumRighe",
+      "logical_type": "int"
+    },
+    "timestamp": {
+      "db2": "HTMSLAV",
+      "sqlserver": "TmpInizioLav",
+      "logical_type": "datetime"
+    },
+    "codEsito": {
+      "db2": "CMSG",
+      "sqlserver": "CodMessaggio",
+      "logical_type": "string",
+      "padding": true
+    }
+  }
+}

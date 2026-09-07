@@ -1,0 +1,173 @@
+{
+  "table": {
+    "db2": "DTPT03.ADCTET11",
+    "sqlserver": "dbo.FlussiTelematici"
+  },
+  "columns": {
+    "ambito": {
+      "db2": "CESA",
+      "sqlserver": "Ambito",
+      "logical_type": "int"
+    },
+    "tipo_flusso": {
+      "db2": "CFIL",
+      "sqlserver": "TipoFlusso",
+      "logical_type": "string",
+      "padding": true
+    },
+    "anno_flusso": {
+      "db2": "AFIL",
+      "sqlserver": "AnnoFlusso",
+      "logical_type": "int"
+    },
+    "num_flusso": {
+      "db2": "NFIL",
+      "sqlserver": "NumFlusso",
+      "logical_type": "string",
+      "padding": true
+    },
+    "data_rif": {
+      "db2": "DRIF",
+      "sqlserver": "DataRif",
+      "logical_type": "date"
+    },
+    "data_cre": {
+      "db2": "DCRE",
+      "sqlserver": "DataCre",
+      "logical_type": "date"
+    },
+    "rel_soft": {
+      "db2": "CVER",
+      "sqlserver": "RelSoft",
+      "logical_type": "string",
+      "padding": true
+    },
+    "flg_euro": {
+      "db2": "FEUR",
+      "sqlserver": "FlgEuro",
+      "logical_type": "string",
+      "padding": true
+    },
+    "anno_rif_invio": {
+      "db2": "AFILINV",
+      "sqlserver": "AnnoRif",
+      "logical_type": "int"
+    },
+    "num_file_invio": {
+      "db2": "NFILINV",
+      "sqlserver": "NumFile",
+      "logical_type": "int"
+    },
+    "tot_r5a": {
+      "db2": "N001",
+      "sqlserver": "TotR5A",
+      "logical_type": "int"
+    },
+    "tot_r5b": {
+      "db2": "N002",
+      "sqlserver": "TotR5B",
+      "logical_type": "int"
+    },
+    "tot_r7a": {
+      "db2": "N003",
+      "sqlserver": "TotR7A",
+      "logical_type": "int"
+    },
+    "tot_r7b": {
+      "db2": "N004",
+      "sqlserver": "TotR7B",
+      "logical_type": "int"
+    },
+    "tot_r7c": {
+      "db2": "N005",
+      "sqlserver": "TotR7C",
+      "logical_type": "int"
+    },
+    "tot_r7d": {
+      "db2": "N006",
+      "sqlserver": "TotR7D",
+      "logical_type": "int"
+    },
+    "tot_r7e": {
+      "db2": "N007",
+      "sqlserver": "TotR7E",
+      "logical_type": "int"
+    },
+    "tot_r7f": {
+      "db2": "N008",
+      "sqlserver": "TotR7F",
+      "logical_type": "int"
+    },
+    "tot_r7g": {
+      "db2": "N009",
+      "sqlserver": "TotR7G",
+      "logical_type": "int"
+    },
+    "tot_r5z": {
+      "db2": "N010",
+      "sqlserver": "TotR5Z",
+      "logical_type": "int"
+    },
+    "tot_rec": {
+      "db2": "N011",
+      "sqlserver": "TotRec",
+      "logical_type": "int"
+    },
+    "tot_imposta": {
+      "db2": "N012",
+      "sqlserver": "TotImposta",
+      "logical_type": "float"
+    },
+    "tot_sanzioni": {
+      "db2": "N013",
+      "sqlserver": "TotSanzioni",
+      "logical_type": "float"
+    },
+    "tot_interessi": {
+      "db2": "N014",
+      "sqlserver": "TotInteressi",
+      "logical_type": "float"
+    },
+    "tot_altro": {
+      "db2": "N015",
+      "sqlserver": "TotAltro",
+      "logical_type": "float"
+    },
+    "tot_aggio_ant": {
+      "db2": "N016",
+      "sqlserver": "TotAggioAnt",
+      "logical_type": "float"
+    },
+    "tot_aggio": {
+      "db2": "N017",
+      "sqlserver": "TotAggio",
+      "logical_type": "float"
+    },
+    "tot_arrot": {
+      "db2": "N018",
+      "sqlserver": "TotArrot",
+      "logical_type": "float"
+    },
+    "tot_carico": {
+      "db2": "N019",
+      "sqlserver": "TotCarico",
+      "logical_type": "float"
+    },
+    "flg_ric": {
+      "db2": "FRIC",
+      "sqlserver": "FlgRic",
+      "logical_type": "string",
+      "padding": true
+    },
+    "tmp_cre": {
+      "db2": "HCREFIL",
+      "sqlserver": "TmpCre",
+      "logical_type": "datetime"
+    },
+    "tot_r7l": {
+      "db2": "N020",
+      "sqlserver": "TotR7L",
+      "logical_type": "int"
+    }
+  }
+}
