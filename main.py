@@ -9,6 +9,9 @@ from processes.audit_logs import AuditLogsProcessor
 # INTEGRAZIONE PRO: Importazione del nuovo modulo applicativo ex-COBOL
 from processes.migration_tables import Migrationprocessor
 from config.loader import ConfigurationError
+# IMPORT DEL NUOVO MODULO APPLICATIVO
+from processes.postalizzazione_engine import PostalizzazioneEngineProcessor
+from config.loader import ConfigurationError
 
 
 def main():
@@ -23,17 +26,22 @@ def main():
         relational_worker = AuditLogsProcessor()
 
         print(f"[ORCHESTRATORE] Database rilevato da configurazione: {relational_worker.provider.upper()}")
-        print("[ORCHESTRATORE] Avvio esecuzione Task Relazionali...")
 
         # 1. Esecuzione del processo di Audit standard
+        print("[ORCHESTRATORE] Avvio esecuzione Task Relazionali...")
         relational_worker.run()
+
+        # 2. Nuovo modulo applicativo ex-COBOL (Postalizzazione e Formazione)
+        print("\n[ORCHESTRATORE] Avvio Task Postalizzazione Ex-COBOL (ADCFRT18)...")
+        postalizzazione_worker = PostalizzazioneEngineProcessor()
+        postalizzazione_worker.run()
 
         # ---------------------------------------------------------------------
         # INTEGRAZIONE PRO: NUOVO MODULO APPLICATIVO EX-COBOL (MOMENTANEAMENTE COMMENTATO)
         # ---------------------------------------------------------------------
-        print("\n[ORCHESTRATORE] Avvio esecuzione Task Migrazione Db2-SqlServer...")
-        provvigioni_worker = Migrationprocessor()
-        provvigioni_worker.run()
+        #print("\n[ORCHESTRATORE] Avvio esecuzione Task Migrazione Db2-SqlServer...")
+        #provvigioni_worker = Migrationprocessor()
+        #provvigioni_worker.run()
         # ---------------------------------------------------------------------
 
     except ConfigurationError as env_error:
