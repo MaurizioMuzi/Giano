@@ -1,0 +1,49 @@
+{
+  "table": {
+    "db2": "ADCFRT18",
+    "sqlserver": "StatoFormazione"
+  },
+  "columns": {
+    "dcon": {
+      "db2": "DCON",
+      "sqlserver": "DataConsolidamento",
+      "logical_type": "date"
+    },
+    "diniinf": {
+      "db2": "DINIINF",
+      "sqlserver": "DataInizioInf",
+      "logical_type": "date"
+    },
+    "dfininf": {
+      "db2": "DFININF",
+      "sqlserver": "DataFineInf",
+      "logical_type": "date"
+    },
+    "dinifor": {
+      "db2": "DINIFOR",
+      "sqlserver": "DataInizioFormazione",
+      "logical_type": "date"
+    },
+    "dfinfor": {
+      "db2": "DFINFOR",
+      "sqlserver": "DataFineFormazione",
+      "logical_type": "date"
+    },
+    "fstfor": {
+      "db2": "FSTFOR",
+      "sqlserver": "StatoFormazione",
+      "logical_type": "string",
+      "padding": true
+    },
+    "tmsini": {
+      "db2": "TMSINI",
+      "sqlserver": "TimestampInizio",
+      "logical_type": "datetime"
+    },
+    "tmsfin": {
+      "db2": "TMSFIN",
+      "sqlserver": "TimestampFine",
+      "logical_type": "datetime"
+    }
+  }
+}
