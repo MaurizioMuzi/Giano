@@ -6,11 +6,16 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from database.manager import DefaultConnectionProvider
 from processes.audit_logs import AuditLogsProcessor
-# INTEGRAZIONE PRO: Importazione del nuovo modulo applicativo ex-COBOL
+# Importazione del nuovo modulo applicativo ex-COBOL
 from processes.migration_tables import Migrationprocessor
 from config.loader import ConfigurationError
-# IMPORT DEL NUOVO MODULO APPLICATIVO
+
+# Import del modulo applicativo di Formazione Avviso
+from processes.formazione_avviso_engine import FormazioneAvvisoEngineProcessor
+
+# Import del modulo applicativo di Postalizzazione
 from processes.postalizzazione_engine import PostalizzazioneEngineProcessor
+
 from config.loader import ConfigurationError
 
 
@@ -31,7 +36,12 @@ def main():
         print("[ORCHESTRATORE] Avvio esecuzione Task Relazionali...")
         relational_worker.run()
 
-        # 2. Nuovo modulo applicativo ex-COBOL (Postalizzazione e Formazione)
+        # 2. Nuovo modulo applicativo ex-COBOL (Formazione Avviso)
+        print("\n[ORCHESTRATORE] Avvio Task Formazione Avviso Ex-COBOL (PDCFOAVV)...")
+        formazione_avviso_worker = FormazioneAvvisoEngineProcessor()
+        formazione_avviso_worker.run()
+
+        # 3. Nuovo modulo applicativo ex-COBOL (Postalizzazione e Formazione)
         print("\n[ORCHESTRATORE] Avvio Task Postalizzazione Ex-COBOL (ADCFRT18)...")
         postalizzazione_worker = PostalizzazioneEngineProcessor()
         postalizzazione_worker.run()

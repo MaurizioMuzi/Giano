@@ -4,14 +4,13 @@ from core.base_process import BaseProcessModel
 from core.query_builder import CompiledQuery
 
 
-class PostalizzazioneEngineProcessor(BaseProcessModel):
+class FormazioneAvvisoEngineProcessor(BaseProcessModel):
     """
-    Reingegnerizzazione del programma COBOL PDCPOAVV
-    Modulo applicativo Enterprise dedicato al ciclo di controllo e avanzamento stato
-    per la formazione e postalizzazione.
+    Reingegnerizzazione del programma COBOL PDCFOAVV
+    Modulo applicativo Enterprise dedicato al ciclo per iscrizione crediti a ruolo.
 
-    Vengono elaborati tutti gli avvisi di addebito formati con conseguente
-    scrittura sulle tabelle condivise con il gruppo di postalizzazione
+    Vengono definiti tutti gli avvisi di addebito per i crediti infasati presenti
+    sulla tabella db2 ADCFRT01
 
     Incapsula l'elaborazione dei paragrafi:
       - OPERAZIONI-INIZIALI
@@ -21,7 +20,7 @@ class PostalizzazioneEngineProcessor(BaseProcessModel):
     """
 
     def __init__(self):
-        super().__init__(process_name="Postalizzazione_Formazione_Engine")
+        super().__init__(process_name="Formazione_Avviso_Engine")
         # Registri di memoria dedicati (Working-Storage COBOL)
         self.ws_dcon = None
         self.ws_diniinf = None
@@ -64,17 +63,19 @@ class PostalizzazioneEngineProcessor(BaseProcessModel):
         fields_clause = ", ".join(fields)
 
         # Costruzione del predicato conforme al COBOL:
-        # WHERE DINIFOR <= CURRENT DATE AND DFINFOR >= CURRENT DATE AND (FSTFOR = '3' OR FSTFOR = '9')
+        # DINIFOR <= CURRENT DATE
+        # DFINFOR >= CURRENT DATE
+        # FSTFOR = '2'
         where_condition = (
             f"{t18_map.dinifor} <= ? AND {t18_map.dfinfor} >= ? "
-            f"AND ({t18_map.fstfor} = ? OR {t18_map.fstfor} = ?)"
+            f"AND {t18_map.fstfor} <> ?"
         )
 
         sql_select = f"SELECT {fields_clause} FROM {t18_map.name} WHERE {where_condition}"
         if self.provider == "db2":
             sql_select += " WITH UR"
 
-        query_params = (formatted_curr_date, formatted_curr_date, "3", "9")
+        query_params = (formatted_curr_date, formatted_curr_date, "2")
         compiled_select = CompiledQuery(sql=sql_select, params=query_params)
 
         raw_results = self.fetch(compiled_select)
@@ -84,10 +85,10 @@ class PostalizzazioneEngineProcessor(BaseProcessModel):
             print("\n   **********************************")
             print("   *          SEGNALAZIONE          *")
             print("   * ------------------------------ *")
-            print("   *POSTALIZZAZIONE NON CONSENTITA  *")
+            print("   *FORMAZIONE NON CONSENTITA       *")
             print("   **********************************\n")
             raise RuntimeError(
-                "[COBOL_EXCEPTION] Condizione bloccante: nessun record valido in stato '3' o '9' "
+                "[COBOL_EXCEPTION] Condizione bloccante: nessun record valido in stato '2' "
                 f"per la data contabile {formatted_curr_date}."
             )
 
@@ -108,19 +109,21 @@ class PostalizzazioneEngineProcessor(BaseProcessModel):
         print(f"      - FSTFOR  : {self.ws_fstfor}")
 
         # ------------------------------------------------------------------
-        # 3. PARAGRAFO: UPD-STATO-INI-FORM
+        # 3. PARAGRAFO: UPD-STATO-INI-FORM -
+        # AGGIORNA FSTFOR => '1' ( FORMAZIONE IN CORSO )
+        # TMSINI => CURRENT TIMESTAMP DELLA TABELLA ADCFRT18
         # ------------------------------------------------------------------
-        print("   >> Avanzamento stato a '9' e aggiornamento marcatura temporale...")
+        print("   >> Avanzamento stato a '1' e aggiornamento marcatura temporale...")
 
         current_timestamp = datetime.now()
         sql_update = (
             f"UPDATE {t18_map.name} "
-            f"SET {t18_map.fstfor} = ?, {t18_map.tmsfin} = ? "
+            f"SET {t18_map.fstfor} = ?, {t18_map.tmsini} = ? "
             f"WHERE {t18_map.dcon} = ? AND {t18_map.diniinf} = ?"
         )
 
         update_params = (
-            "9",
+            "1",
             current_timestamp,
             self.dialect.format_value(self.ws_dcon),
             self.dialect.format_value(self.ws_diniinf)
@@ -148,5 +151,5 @@ if __name__ == "__main__":
     import os
 
     os.environ["EXTERNAL_DB_CONFIG_PATH"] = r"C:\Users\mmuzi\config\app_db_config.json"
-    worker = PostalizzazioneEngineProcessor()
+    worker = FormazioneAvvisoEngineProcessor()
     worker.run()
