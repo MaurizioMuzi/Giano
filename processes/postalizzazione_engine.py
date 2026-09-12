@@ -1,17 +1,18 @@
+# processes/postalizzazione_engine.py
 import sys
+import os
 from datetime import date, datetime
 from core.base_process import BaseProcessModel
-from core.query_builder import CompiledQuery
 
 
 class PostalizzazioneEngineProcessor(BaseProcessModel):
     """
-    Reingegnerizzazione del programma COBOL PDCPOAVV
+    Reingegnerizzazione del programma COBOL PDCPOAVV.
     Modulo applicativo Enterprise dedicato al ciclo di controllo e avanzamento stato
     per la formazione e postalizzazione.
 
     Vengono elaborati tutti gli avvisi di addebito formati con conseguente
-    scrittura sulle tabelle condivise con il gruppo di postalizzazione
+    scrittura sulle tabelle condivise con il gruppo di postalizzazione.
 
     Incapsula l'elaborazione dei paragrafi:
       - OPERAZIONI-INIZIALI
@@ -32,52 +33,38 @@ class PostalizzazioneEngineProcessor(BaseProcessModel):
 
     def _execute_business_logic(self):
         """Esecuzione sequenziale della logica di business derivata dal sorgente Host."""
-        print(f"\n======================================================================")
+        print("======================================================================")
         print(f"   AVVIO TASK: {self.process_name}")
-        print(f"======================================================================")
+        print(f"   Provider Rete Attivo: {self.provider.upper()}")
+        print("======================================================================")
 
-        # Risoluzione della tabella logica 'stato_formazione' (ADCFRT18 / StatoFormazione)
         t18_map = self.get_table_map("stato_formazione")
 
         # ------------------------------------------------------------------
         # 1. PARAGRAFO: OPERAZIONI-INIZIALI & CURRENT DATE
+        # Nel codice COBOL: EXEC SQL SET :WS-DATA-SQL = CURRENT DATE END-EXEC
         # ------------------------------------------------------------------
         current_system_date = date.today()
-        formatted_curr_date = self.dialect.format_value(current_system_date)
-        print(f"   >> [INIT] Data di sistema rilevata: {formatted_curr_date}")
+        print(f"   >> [INIT] Data di sistema rilevata: {current_system_date.isoformat()}")
 
         # ------------------------------------------------------------------
         # 2. PARAGRAFO: CNTR-STATO-FORMAZIONE
+        # Condizioni COBOL:
+        #   DINIFOR <= :WS-DATA-SQL AND DFINFOR >= :WS-DATA-SQL AND (FSTFOR = '3' OR FSTFOR = '9')
         # ------------------------------------------------------------------
-        print("   >> Controllo finestre temporali e stato lavorazione...")
+        print("   >> [CNTR-STATO-FORMAZIONE] Controllo finestre temporali e stato lavorazione...")
 
-        fields = [
-            getattr(t18_map, "dcon"),
-            getattr(t18_map, "diniinf"),
-            getattr(t18_map, "dfininf"),
-            getattr(t18_map, "dinifor"),
-            getattr(t18_map, "dfinfor"),
-            getattr(t18_map, "fstfor"),
-            getattr(t18_map, "tmsini"),
-            getattr(t18_map, "tmsfin")
-        ]
-        fields_clause = ", ".join(fields)
-
-        # Costruzione del predicato conforme al COBOL:
-        # WHERE DINIFOR <= CURRENT DATE AND DFINFOR >= CURRENT DATE AND (FSTFOR = '3' OR FSTFOR = '9')
-        where_condition = (
-            f"{t18_map.dinifor} <= ? AND {t18_map.dfinfor} >= ? "
-            f"AND ({t18_map.fstfor} = ? OR {t18_map.fstfor} = ?)"
+        query_builder = (
+            self.dataset("stato_formazione")
+            .select("dcon", "diniinf", "dfininf", "dinifor", "dfinfor", "fstfor", "tmsini", "tmsfin")
+            .filter_by("dinifor", "<=", current_system_date)
+            .filter_by("dfinfor", ">=", current_system_date)
+            .filter_by("fstfor", "IN", ("3", "9"))
+            .with_uncommitted_read()
+            .limit(1)
         )
 
-        sql_select = f"SELECT {fields_clause} FROM {t18_map.name} WHERE {where_condition}"
-        if self.provider == "db2":
-            sql_select += " WITH UR"
-
-        query_params = (formatted_curr_date, formatted_curr_date, "3", "9")
-        compiled_select = CompiledQuery(sql=sql_select, params=query_params)
-
-        raw_results = self.fetch(compiled_select)
+        raw_results = self.fetch(query_builder.compile_select())
 
         # Gestione del codice di ritorno SQL (SQLCODE <> 0 / SQL-KEY-NON-TROVATA)
         if not raw_results:
@@ -87,11 +74,11 @@ class PostalizzazioneEngineProcessor(BaseProcessModel):
             print("   *POSTALIZZAZIONE NON CONSENTITA  *")
             print("   **********************************\n")
             raise RuntimeError(
-                "[COBOL_EXCEPTION] Condizione bloccante: nessun record valido in stato '3' o '9' "
-                f"per la data contabile {formatted_curr_date}."
+                f"[COBOL_EXCEPTION] Condizione bloccante: nessun record valido in stato '3' o '9' "
+                f"per la data contabile {current_system_date.isoformat()}."
             )
 
-        # Estrazione e normalizzazione del record recuperato
+        # Normalizzazione e assegnazione dei valori ai registri interni
         normalized_row = t18_map.normalize(raw_results[0])
         self.ws_dcon = normalized_row.get("dcon")
         self.ws_diniinf = normalized_row.get("diniinf")
@@ -101,34 +88,31 @@ class PostalizzazioneEngineProcessor(BaseProcessModel):
         self.ws_fstfor = normalized_row.get("fstfor")
 
         print(f"   >> [CNTR-STATO-FORMAZIONE] Record intercettato con successo:")
-        print(f"      - DCON    : {self.ws_dcon}")
-        print(f"      - DINIINF : {self.ws_diniinf}")
-        print(f"      - DINIFOR : {self.ws_dinifor}")
-        print(f"      - DFINFOR : {self.ws_dfinfor}")
-        print(f"      - FSTFOR  : {self.ws_fstfor}")
+        print(f"      - Data Consolidamento (DCON)    : {self.ws_dcon}")
+        print(f"      - Inizio Infasamento (DINIINF)  : {self.ws_diniinf}")
+        print(f"      - Inizio Formazione (DINIFOR)   : {self.ws_dinifor}")
+        print(f"      - Fine Formazione (DFINFOR)     : {self.ws_dfinfor}")
+        print(f"      - Stato Rilevato (FSTFOR)       : {self.ws_fstfor}")
 
         # ------------------------------------------------------------------
         # 3. PARAGRAFO: UPD-STATO-INI-FORM
+        # Aggiorna FSTFOR = '9' e TMSFIN = CURRENT TIMESTAMP
         # ------------------------------------------------------------------
-        print("   >> Avanzamento stato a '9' e aggiornamento marcatura temporale...")
+        print("   >> [UPD-STATO-INI-FORM] Avanzamento stato a '9' e marcatura timestamp chiusura...")
 
         current_timestamp = datetime.now()
-        sql_update = (
-            f"UPDATE {t18_map.name} "
-            f"SET {t18_map.fstfor} = ?, {t18_map.tmsfin} = ? "
-            f"WHERE {t18_map.dcon} = ? AND {t18_map.diniinf} = ?"
+        update_query = (
+            self.dataset("stato_formazione")
+            .filter_by("dcon", "=", self.ws_dcon)
+            .filter_by("diniinf", "=", self.ws_diniinf)
+            .compile_update({
+                "fstfor": "9",
+                "tmsfin": current_timestamp
+            })
         )
 
-        update_params = (
-            "9",
-            current_timestamp,
-            self.dialect.format_value(self.ws_dcon),
-            self.dialect.format_value(self.ws_diniinf)
-        )
-
-        compiled_update = CompiledQuery(sql=sql_update, params=update_params)
-        righe_modificate = self.execute_mutation(compiled_update)
-        print(f"   >> Record aggiornati con successo: {righe_modificate}")
+        righe_modificate = self.execute_mutation(update_query)
+        print(f"   >> [UPD-STATO-INI-FORM] Record aggiornati con successo: {righe_modificate}")
 
         # ------------------------------------------------------------------
         # 4. PARAGRAFO: ACCEDI-PILOTA
@@ -141,12 +125,10 @@ class PostalizzazioneEngineProcessor(BaseProcessModel):
         Riceve in input la chiave di consolidamento (DCON) estratta dalla tabella T18.
         """
         print(f"   >> [ACCEDI-PILOTA] Inizializzazione controllo tabella pilota per DCON={self.ws_dcon}...")
-        # Qui verranno collocate le logiche dei blocchi COBOL successivi
+        # Predisposto per l'inserimento/verifica della tabella pilota
 
 
 if __name__ == "__main__":
-    import os
-
     os.environ["EXTERNAL_DB_CONFIG_PATH"] = r"C:\Users\mmuzi\config\app_db_config.json"
     worker = PostalizzazioneEngineProcessor()
     worker.run()

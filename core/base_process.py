@@ -6,8 +6,15 @@ from core.query_builder import EntityModel, CompiledQuery, DB2Dialect, SQLServer
 
 
 class BaseProcessModel(ABC):
-    def __init__(self, process_name: str):
+    def __init__(self, process_name: str, dry_run: bool = False):
+        """
+        Inizializza il processor.
+
+        :param process_name: Identificativo del processo batch
+        :param dry_run: Se True, blocca le mutazioni fisiche su DB2 e si limita a loggare
+        """
         self.process_name = process_name
+        self.dry_run = dry_run
         self.connection, self.provider = DefaultConnectionProvider().get_connection()
 
         if self.provider == "db2":
@@ -16,6 +23,10 @@ class BaseProcessModel(ABC):
             self.dialect = SQLServerDialect()
         else:
             raise NotImplementedError(f"Driver {self.provider} non supportato.")
+
+    def repository(self, logical_table_key: str) -> "GenericRepository":
+        from core.generic_repository import GenericRepository
+        return GenericRepository(self, logical_table_key)
 
     def get_table_map(self, logical_table_key: str):
         """Restituisce l'istanza TableMap risolta dal provider centrale."""
@@ -81,16 +92,32 @@ class BaseProcessModel(ABC):
             if chunk:
                 yield chunk
 
-    def execute_mutation(self, compiled_query: CompiledQuery) -> int:
-        """Esegue UPDATE/DELETE reali su SQL Server e LOGGA unicamente su DB2 Mainframe."""
+    def simulate_mutation(self, compiled_query: CompiledQuery) -> int:
+        """
+        MODALITÀ SIMULATA (DRY-RUN):
+        Logga l'istruzione ed evita qualsiasi scrittura su DB2 Mainframe.
+        """
+        print(f"   [LOG MAINFRAME - SIMULATE_ONLY] Blocco mutazione fisica richiesto.")
+        print(f"   >> SQL MUTATION COMPILATO: {compiled_query.sql}")
+        print(f"   >> PARAMETRI ASSOCIAZIONI: {compiled_query.params}")
+        return 1
+
+    def execute_real_mutation(self, compiled_query: CompiledQuery) -> int:
+        """
+        MODALITÀ REALE (WRITE-ENABLED):
+        Esegue fisicamente l'UPDATE o DELETE sia su DB2 che su SQL Server.
+        """
+        print(f"   >> [EXEC_REAL_MUTATION] [{self.provider.upper()}] SQL: {compiled_query.sql}")
+        print(f"   >> PARAMETRI: {compiled_query.params}")
+
         if self.provider == "db2":
-            print(f"   [LOG MAINFRAME - NO_WRITE] Rilevato canale DB2. Bloccata mutazione fisica.")
-            print(f"   >> SQL MUTATION COMPILATO: {compiled_query.sql}")
-            print(f"   >> PARAMETRI ASSOCIAZIONI: {compiled_query.params}")
-            return 1  # Simula il successo dell'operazione ex-COBOL senza toccare il DB
+            import ibm_db
+            stmt = ibm_db.prepare(self.connection, compiled_query.sql)
+            if not ibm_db.execute(stmt, compiled_query.params):
+                raise RuntimeError(f"Errore UPDATE/DELETE DB2: {ibm_db.stmt_errormsg()}")
+            return ibm_db.num_rows(stmt)
 
         elif self.provider == "sqlserver":
-            print(f"   >> [EXEC_REAL_MUTATION] SQL: {compiled_query.sql}")
             cursor = self.connection.cursor()
             try:
                 cursor.execute(compiled_query.sql, compiled_query.params)
@@ -98,8 +125,18 @@ class BaseProcessModel(ABC):
             finally:
                 cursor.close()
 
-    def execute_bulk_insert(self, logical_table_key: str, data_list: list) -> int:
-        """Esegue l'inserimento massivo reale su SQL Server e LOGGA unicamente su DB2."""
+    def execute_mutation(self, compiled_query: CompiledQuery) -> int:
+        """
+        Dispatcher unificato:
+        Se self.dry_run è True (o se esplicitamente impostato), simula su DB2.
+        Altrimenti esegue la mutazione reale su entrambi i database.
+        """
+        if self.dry_run and self.provider == "db2":
+            return self.simulate_mutation(compiled_query)
+        return self.execute_real_mutation(compiled_query)
+
+    def execute_bulk_insert(self, logical_table_key: str, data_list: list, force_simulate: bool = False) -> int:
+        """Esegue bulk insert reale o simulato in base alla configurazione."""
         if not data_list: return 0
         table_map = self.get_table_map(logical_table_key)
 
@@ -109,18 +146,25 @@ class BaseProcessModel(ABC):
 
         sql = f"INSERT INTO {table_map.name} ({', '.join(physical_columns)}) VALUES ({placeholders})"
 
-        # Formattazione e preparazione dei pacchetti dati tramite Dialetto
         tuple_batch = []
         for row in data_list:
             tuple_batch.append(tuple(self.dialect.format_value(row.get(col)) for col in logical_columns))
 
-        # INTERCETTAZIONE DI SICUREZZA PER DB2 - PRIMA DEL CORRUTTIBILE EXECUTE DEL DRIVER CLI
-        if self.provider == "db2":
-            print(f"   [LOG MAINFRAME - NO_WRITE] Rilevato canale DB2. Intercettata ed Evitata Scrittura Bulk.")
+        if (self.dry_run or force_simulate) and self.provider == "db2":
+            print(f"   [LOG MAINFRAME - NO_WRITE] Simulazione bulk insert DB2.")
             print(f"   >> SQL BULK TARGET: {sql}")
-            print(f"   >> MATRICE BUFFER CODA: {len(tuple_batch)} record normalizzati pronti nel tracciato.")
-            print(f"   >> ESEMPIO TUPLA RECORD STRUTTURATO: {tuple_batch[0]}")
-            return len(tuple_batch) # Simula l'avvenuto inserimento di tutti i record batch
+            print(f"   >> RECORD BUFFER: {len(tuple_batch)}")
+            return len(tuple_batch)
+
+        if self.provider == "db2":
+            import ibm_db
+            stmt = ibm_db.prepare(self.connection, sql)
+            count = 0
+            for item in tuple_batch:
+                if not ibm_db.execute(stmt, item):
+                    raise RuntimeError(f"Errore Bulk DB2: {ibm_db.stmt_errormsg()}")
+                count += 1
+            return count
 
         elif self.provider == "sqlserver":
             print(f"   >> [EXEC_REAL_BULK_INSERT] Tabella: {table_map.name} - Righe: {len(tuple_batch)}")
@@ -132,15 +176,29 @@ class BaseProcessModel(ABC):
                 cursor.close()
 
     def run(self):
+        """Esecuzione orchestrata con gestione atomica del COMMIT / ROLLBACK su entrambi i DB."""
         try:
             self._execute_business_logic()
+
             if self.provider == "sqlserver":
                 self.connection.commit()
                 print("   >> [TRANSACTION] COMMIT reale eseguito su SQL Server.")
+            elif self.provider == "db2":
+                if not self.dry_run:
+                    import ibm_db
+                    ibm_db.commit(self.connection)
+                    print("   >> [TRANSACTION] COMMIT reale eseguito su DB2.")
+                else:
+                    print("   >> [TRANSACTION] Modalità DRY-RUN attiva: nessun commit inviato a DB2.")
+
         except Exception as e:
             if self.provider == "sqlserver":
                 self.connection.rollback()
                 print("   >> [TRANSACTION] ROLLBACK eseguito su SQL Server.")
+            elif self.provider == "db2":
+                import ibm_db
+                ibm_db.rollback(self.connection)
+                print("   >> [TRANSACTION] ROLLBACK eseguito su DB2.")
             raise e
 
     @abstractmethod

@@ -33,8 +33,8 @@ def main():
         print(f"[ORCHESTRATORE] Database rilevato da configurazione: {relational_worker.provider.upper()}")
 
         # 1. Esecuzione del processo di Audit standard
-        print("[ORCHESTRATORE] Avvio esecuzione Task Relazionali...")
-        relational_worker.run()
+        #print("[ORCHESTRATORE] Avvio esecuzione Task Relazionali...")
+        #relational_worker.run()
 
         # 2. Nuovo modulo applicativo ex-COBOL (Formazione Avviso)
         print("\n[ORCHESTRATORE] Avvio Task Formazione Avviso Ex-COBOL (PDCFOAVV)...")
@@ -42,9 +42,9 @@ def main():
         formazione_avviso_worker.run()
 
         # 3. Nuovo modulo applicativo ex-COBOL (Postalizzazione e Formazione)
-        print("\n[ORCHESTRATORE] Avvio Task Postalizzazione Ex-COBOL (ADCFRT18)...")
-        postalizzazione_worker = PostalizzazioneEngineProcessor()
-        postalizzazione_worker.run()
+        #print("\n[ORCHESTRATORE] Avvio Task Postalizzazione Ex-COBOL (ADCFRT18)...")
+        #postalizzazione_worker = PostalizzazioneEngineProcessor()
+        #postalizzazione_worker.run()
 
         # ---------------------------------------------------------------------
         # INTEGRAZIONE PRO: NUOVO MODULO APPLICATIVO EX-COBOL (MOMENTANEAMENTE COMMENTATO)
