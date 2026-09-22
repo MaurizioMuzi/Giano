@@ -1,0 +1,365 @@
+{
+  "table": {
+    "db2": "DTPT03.ADCFRT10",
+    "sqlserver": "DettaglioCrediti"
+  },
+  "columns": {
+    "gestione": {
+      "db2": "CGES",
+      "sqlserver": "Gestione",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codiceAtto": {
+      "db2": "CATT",
+      "sqlserver": "CodiceAtto",
+      "logical_type": "string",
+      "padding": true
+    },
+    "progArticolo": {
+      "db2": "NPRGART",
+      "sqlserver": "ProgArticolo",
+      "logical_type": "int"
+    },
+    "numIdDecre": {
+      "db2": "NIDECRE",
+      "sqlserver": "NumIdDecre",
+      "logical_type": "int"
+    },
+    "codTributoCnc": {
+      "db2": "CTRBCNC",
+      "sqlserver": "CodTributoCnc",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codCausale": {
+      "db2": "CCAU",
+      "sqlserver": "CodCausale",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codPeriodo": {
+      "db2": "CPER",
+      "sqlserver": "CodPeriodo",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codNaturaTrb": {
+      "db2": "CNATTRB",
+      "sqlserver": "CodNaturaTrb",
+      "logical_type": "string",
+      "padding": true
+    },
+    "numRata": {
+      "db2": "NRAT",
+      "sqlserver": "NumRata",
+      "logical_type": "int"
+    },
+    "numAccreditamento": {
+      "db2": "NACC",
+      "sqlserver": "NumAccreditamento",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codRata": {
+      "db2": "CRAT",
+      "sqlserver": "CodRata",
+      "logical_type": "string",
+      "padding": true
+    },
+    "impTributo": {
+      "db2": "ITRB",
+      "sqlserver": "ImpTributo",
+      "logical_type": "int"
+    },
+    "flgResiduo": {
+      "db2": "FRES",
+      "sqlserver": "FlgResiduo",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codAggio": {
+      "db2": "CAGG",
+      "sqlserver": "CodAggio",
+      "logical_type": "string",
+      "padding": true
+    },
+    "impAggioAnt": {
+      "db2": "IAGGANT",
+      "sqlserver": "ImpAggioAnt",
+      "logical_type": "int"
+    },
+    "impAggioTot": {
+      "db2": "IAGGTOT",
+      "sqlserver": "ImpAggioTot",
+      "logical_type": "int"
+    },
+    "impArrotondamento": {
+      "db2": "IARR",
+      "sqlserver": "ImpArrotondamento",
+      "logical_type": "int"
+    },
+    "codSsn": {
+      "db2": "CSSN",
+      "sqlserver": "CodSsn",
+      "logical_type": "int"
+    },
+    "dataFineInf": {
+      "db2": "DFININF",
+      "sqlserver": "DataFineInf",
+      "logical_type": "date"
+    },
+    "impInteressi": {
+      "db2": "IDIE",
+      "sqlserver": "ImpInteressi",
+      "logical_type": "int"
+    },
+    "tasso": {
+      "db2": "TASSO",
+      "sqlserver": "Tasso",
+      "logical_type": "decimal"
+    },
+    "meseInizioPeriodo": {
+      "db2": "MINIPER",
+      "sqlserver": "MeseInizioPeriodo",
+      "logical_type": "int"
+    },
+    "meseFinePeriodo": {
+      "db2": "MFINPER",
+      "sqlserver": "MeseFinePeriodo",
+      "logical_type": "int"
+    },
+    "annoConsolidamento": {
+      "db2": "ACON",
+      "sqlserver": "AnnoConsolidamento",
+      "logical_type": "int"
+    },
+    "numTotRate": {
+      "db2": "NTOTRAT",
+      "sqlserver": "NumTotRate",
+      "logical_type": "int"
+    },
+    "descrizioneArticolo": {
+      "db2": "SART",
+      "sqlserver": "DescrizioneArticolo",
+      "logical_type": "string",
+      "padding": true
+    },
+    "impTributoCalc": {
+      "db2": "ITRBCAL",
+      "sqlserver": "ImpTributoCalc",
+      "logical_type": "int"
+    },
+    "dataFineCalc": {
+      "db2": "DFINCAL",
+      "sqlserver": "DataFineCalc",
+      "logical_type": "date"
+    },
+    "progCarico": {
+      "db2": "NPRGCAR",
+      "sqlserver": "ProgCarico",
+      "logical_type": "int"
+    },
+    "impTributoCarico": {
+      "db2": "ITRBCAR",
+      "sqlserver": "ImpTributoCarico",
+      "logical_type": "int"
+    },
+    "flgEuroCarico": {
+      "db2": "FEURCAR",
+      "sqlserver": "FlgEuroCarico",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codPagamento": {
+      "db2": "CPAG",
+      "sqlserver": "CodPagamento",
+      "logical_type": "string",
+      "padding": true
+    },
+    "flgEuroPag": {
+      "db2": "FEURPAG",
+      "sqlserver": "FlgEuroPag",
+      "logical_type": "string",
+      "padding": true
+    },
+    "dataPagamento": {
+      "db2": "DPAG",
+      "sqlserver": "DataPagamento",
+      "logical_type": "date"
+    },
+    "dataRegistrazionePag": {
+      "db2": "DREGPAG",
+      "sqlserver": "DataRegistrazionePag",
+      "logical_type": "date"
+    },
+    "dataDecadenza": {
+      "db2": "DDEC",
+      "sqlserver": "DataDecadenza",
+      "logical_type": "date"
+    },
+    "impTributoPagato": {
+      "db2": "ITRBPAG",
+      "sqlserver": "ImpTributoPagato",
+      "logical_type": "int"
+    },
+    "impAggioPagato": {
+      "db2": "IAGGPAG",
+      "sqlserver": "ImpAggioPagato",
+      "logical_type": "int"
+    },
+    "impAggioRimborso": {
+      "db2": "IAGGRIM",
+      "sqlserver": "ImpAggioRimborso",
+      "logical_type": "int"
+    },
+    "impAgcPagato": {
+      "db2": "IAGCPAG",
+      "sqlserver": "ImpAgcPagato",
+      "logical_type": "int"
+    },
+    "impMoraPagata": {
+      "db2": "IMORPAG",
+      "sqlserver": "ImpMoraPagata",
+      "logical_type": "int"
+    },
+    "annoFlusso": {
+      "db2": "AFIL",
+      "sqlserver": "AnnoFlusso",
+      "logical_type": "int"
+    },
+    "numFlusso": {
+      "db2": "NFIL",
+      "sqlserver": "NumFlusso",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codEsattoria": {
+      "db2": "CESA",
+      "sqlserver": "CodEsattoria",
+      "logical_type": "int"
+    },
+    "numQuietanza": {
+      "db2": "NQUI",
+      "sqlserver": "NumQuietanza",
+      "logical_type": "int"
+    },
+    "dataQuietanza": {
+      "db2": "DQUI",
+      "sqlserver": "DataQuietanza",
+      "logical_type": "date"
+    },
+    "dataRiversamento": {
+      "db2": "DRIV",
+      "sqlserver": "DataRiversamento",
+      "logical_type": "date"
+    },
+    "statoArticolo": {
+      "db2": "CSTAART",
+      "sqlserver": "StatoArticolo",
+      "logical_type": "string",
+      "padding": true
+    },
+    "tipoAggio": {
+      "db2": "CTIPAGG",
+      "sqlserver": "TipoAggio",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codFasAmm": {
+      "db2": "CFASAMM",
+      "sqlserver": "CodFasAmm",
+      "logical_type": "string",
+      "padding": true
+    },
+    "statoGiudizio": {
+      "db2": "CSTAGIU",
+      "sqlserver": "StatoGiudizio",
+      "logical_type": "string",
+      "padding": true
+    },
+    "gradoGiudizio": {
+      "db2": "CGRAGIU",
+      "sqlserver": "GradoGiudizio",
+      "logical_type": "string",
+      "padding": true
+    },
+    "dataStatoGiudizio": {
+      "db2": "DSTAGIU",
+      "sqlserver": "DataStatoGiudizio",
+      "logical_type": "date"
+    },
+    "tipoRecupero": {
+      "db2": "CTIPRC",
+      "sqlserver": "TipoRecupero",
+      "logical_type": "string",
+      "padding": true
+    },
+    "impOrigModificato": {
+      "db2": "IORIMOD",
+      "sqlserver": "ImpOrigModificato",
+      "logical_type": "int"
+    },
+    "codSituazione": {
+      "db2": "CSIT",
+      "sqlserver": "CodSituazione",
+      "logical_type": "int"
+    },
+    "dataRifConsolidamento": {
+      "db2": "DRIFCON",
+      "sqlserver": "DataRifConsolidamento",
+      "logical_type": "int"
+    },
+    "impCapitale": {
+      "db2": "ICAPI",
+      "sqlserver": "ImpCapitale",
+      "logical_type": "int"
+    },
+    "dataPredoc": {
+      "db2": "DPREDOC",
+      "sqlserver": "DataPredoc",
+      "logical_type": "date"
+    },
+    "descrizioneArticoloBi": {
+      "db2": "SARTBI",
+      "sqlserver": "DescrizioneArticoloBi",
+      "logical_type": "string",
+      "padding": true
+    },
+    "numRateDilazione": {
+      "db2": "NRATDIL",
+      "sqlserver": "NumRateDilazione",
+      "logical_type": "int"
+    },
+    "vetusta": {
+      "db2": "VETUSTA",
+      "sqlserver": "Vetusta",
+      "logical_type": "int"
+    },
+    "timestampIns": {
+      "db2": "TMSINS",
+      "sqlserver": "TmpInserimento",
+      "logical_type": "datetime"
+    },
+    "timestampUpd": {
+      "db2": "TMSUPD",
+      "sqlserver": "TmpAggiornamento",
+      "logical_type": "datetime"
+    },
+    "impContributoDovuto": {
+      "db2": "ICNTDOV",
+      "sqlserver": "ImpContributoDovuto",
+      "logical_type": "int"
+    },
+    "impContributoVersato": {
+      "db2": "ICNTVER",
+      "sqlserver": "ImpContributoVersato",
+      "logical_type": "int"
+    },
+    "impAggio": {
+      "db2": "IAGGIO",
+      "sqlserver": "ImpAggio",
+      "logical_type": "int"
+    }
+  }
+}

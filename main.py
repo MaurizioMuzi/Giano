@@ -1,67 +1,236 @@
 # main.py
 import os
 import sys
+import json
+import argparse
+import logging
+from datetime import datetime
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from database.manager import DefaultConnectionProvider
-from processes.audit_logs import AuditLogsProcessor
-# Importazione del nuovo modulo applicativo ex-COBOL
-from processes.migration_tables import Migrationprocessor
+from processes.formazione_avviso.processor import FormazioneAvvisoEngineProcessor
+from processes.formazione_avviso.context import FormazioneAvvisoContext
 from config.loader import ConfigurationError
+from core.batch_logger import BatchLogger
 
-# Import del modulo applicativo di Formazione Avviso
-from processes.formazione_avviso_engine import FormazioneAvvisoEngineProcessor
+ELABORAZIONI_VALIDE = [
+    "gestione_avvisi",
+    "formazione_avviso",
+    "postalizzazione",
+    "formazione_ruoli",
+    "firma_ruoli",
+    "invio_ruoli_AdER"
+]
 
-# Import del modulo applicativo di Postalizzazione
-from processes.postalizzazione_engine import PostalizzazioneEngineProcessor
 
-from config.loader import ConfigurationError
+def parse_date_param(date_str):
+    """Parsa la data accettando i formati standard YYYY-MM-DD, DD.MM.YYYY e DD/MM/YYYY."""
+    if not date_str or not str(date_str).strip():
+        return None
+    for fmt in ("%Y-%m-%d", "%d.%m.%Y", "%d/%m/%Y"):
+        try:
+            return datetime.strptime(str(date_str).strip(), fmt).date()
+        except ValueError:
+            pass
+    raise argparse.ArgumentTypeError(
+        f"Formato data non valido: '{date_str}'. Formati accettati: YYYY-MM-DD, DD.MM.YYYY, DD/MM/YYYY"
+    )
+
+
+def load_config_parameters(config_path: str) -> dict:
+    """Estrae i parametri dal file JSON configurato."""
+    if not os.path.exists(config_path):
+        return {}
+    try:
+        with open(config_path, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
+
+        batch_params = cfg.get("batch_parameters", {})
+
+        # Risoluzione data_formazione_avviso
+        raw_data = cfg.get("data_formazione_avviso") or batch_params.get("data_formazione_avviso")
+        parsed_data = parse_date_param(raw_data) if raw_data else None
+
+        # Risoluzione tipo_elaborazione
+        tipo_elab = cfg.get("tipo_elaborazione") or batch_params.get("tipo_elaborazione")
+        if tipo_elab:
+            tipo_elab = str(tipo_elab).strip()
+
+        return {
+            "data_formazione_avviso": parsed_data,
+            "tipo_elaborazione": tipo_elab
+        }
+    except Exception as err:
+        print(f"[WARN] Impossibile recuperare i parametri dal file JSON: {err}", file=sys.stderr)
+        return {}
+
+
+def resolve_log_level(level_name: str, default: int = logging.INFO) -> int:
+    """Mappa la stringa del livello di log al relativo intero del modulo logging."""
+    mapping = {
+        "DEBUG": logging.DEBUG,
+        "INFO": logging.INFO,
+        "WARN": logging.WARNING,
+        "WARNING": logging.WARNING,
+        "ERROR": logging.ERROR
+    }
+    return mapping.get(level_name.strip().upper(), default)
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Runtime Industrial Processor - Engine COBOL Batch Mainframe")
+
+    parser.add_argument(
+        "sk_data_elab",
+        type=parse_date_param,
+        nargs="?",
+        default=None,
+        help="Data contabile SK-DATA-ELAB (es. 2026-08-31 o 31.08.2026). Se omessa, legge dal JSON o assegna default 9999-12-31"
+    )
+
+    parser.add_argument(
+        "--tipo-elaborazione",
+        type=str,
+        default=None,
+        choices=ELABORAZIONI_VALIDE,
+        help="Target elaborazione batch (se omesso viene letto dal file JSON)"
+    )
+
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Se specificato, esegue il batch in sola simulazione"
+    )
+
+    parser.add_argument(
+        "--config-path",
+        type=str,
+        default=r"C:\Users\maurizio.muzi\config\app_db_config.json",
+        help="Percorso al file JSON di configurazione DB"
+    )
+
+    parser.add_argument(
+        "--log-dir",
+        type=str,
+        default="logs",
+        help="Cartella di destinazione per i file di log .txt (default: 'logs')"
+    )
+
+    parser.add_argument(
+        "--log-console",
+        type=str,
+        default="INFO",
+        choices=["DEBUG", "INFO", "WARN", "ERROR"],
+        help="Livello minimo di tracciamento su console (default: INFO)"
+    )
+
+    parser.add_argument(
+        "--log-file",
+        type=str,
+        default="DEBUG",
+        choices=["DEBUG", "INFO", "WARN", "ERROR"],
+        help="Livello minimo di tracciamento su file .txt (default: DEBUG)"
+    )
+
+    return parser.parse_args()
+
+
+def esegui_formazione_avviso(args, effective_sk_date):
+    """Inizializza ed esegue il processore di formazione avviso."""
+    context = FormazioneAvvisoContext(sk_data_elab=effective_sk_date)
+    BatchLogger.info("ORCHESTRATORE", f"SK-DATA-ELAB operativo: {context.sk_data_elab}")
+    BatchLogger.info("ORCHESTRATORE",
+                     f"Valore risultante DINF (CDCFRT01): {context.dinf_cdcfrt01.strftime('%d.%m.%Y')}")
+
+    worker = FormazioneAvvisoEngineProcessor(
+        context=context,
+        dry_run=args.dry_run
+    )
+    worker.run()
 
 
 def main():
-    print("======================================================================")
-    print("         INIZIALIZZAZIONE RUNTIME ENGINE INDUSTRIAL_PROCESSOR (PRO)   ")
-    print("======================================================================\n")
+    args = parse_args()
+    os.environ["EXTERNAL_DB_CONFIG_PATH"] = args.config_path
 
-    os.environ["EXTERNAL_DB_CONFIG_PATH"] = r"C:\Users\mmuzi\config\app_db_config.json"
+    # Inizializzazione Logger
+    console_lvl = resolve_log_level(args.log_console, logging.INFO)
+    file_lvl = resolve_log_level(args.log_file, logging.DEBUG)
 
+    BatchLogger.setup_logger(
+        log_dir=args.log_dir,
+        console_level=console_lvl,
+        file_level=file_lvl
+    )
+
+    # Caricamento parametri da file JSON
+    config_params = load_config_parameters(args.config_path)
+
+    # Risoluzione data contabile
+    effective_sk_date = args.sk_data_elab or config_params.get("data_formazione_avviso")
+
+    # Risoluzione tipo elaborazione (CLI > JSON > default 'formazione_avviso')
+    effective_tipo_elab = args.tipo_elaborazione or config_params.get("tipo_elaborazione") or "formazione_avviso"
+
+    if effective_tipo_elab not in ELABORAZIONI_VALIDE:
+        BatchLogger.error(
+            "ORCHESTRATORE",
+            f"Tipo elaborazione '{effective_tipo_elab}' non valido. Ammessi: {', '.join(ELABORAZIONI_VALIDE)}"
+        )
+        sys.exit(1)
+
+    BatchLogger.info("ORCHESTRATORE", f"Target di Elaborazione Selezionato: [{effective_tipo_elab.upper()}]")
+
+    exit_code = 0
     try:
-        # Il costruttore del worker attiverà automaticamente il provider impostato nel JSON
-        relational_worker = AuditLogsProcessor()
+        if effective_tipo_elab == "formazione_avviso":
+            esegui_formazione_avviso(args, effective_sk_date)
 
-        print(f"[ORCHESTRATORE] Database rilevato da configurazione: {relational_worker.provider.upper()}")
+        elif effective_tipo_elab == "postalizzazione":
+            BatchLogger.info("STEP-POSTALIZZAZIONE", "Avvio fase di Postalizzazione...")
+            # Invocazione del processor dedicato alla postalizzazione
 
-        # 1. Esecuzione del processo di Audit standard
-        #print("[ORCHESTRATORE] Avvio esecuzione Task Relazionali...")
-        #relational_worker.run()
+        elif effective_tipo_elab == "formazione_ruoli":
+            BatchLogger.info("STEP-FORMAZIONE-RUOLI", "Avvio fase di Formazione Ruoli...")
+            # Invocazione del processor dedicato alla formazione ruoli
 
-        # 2. Nuovo modulo applicativo ex-COBOL (Formazione Avviso)
-        print("\n[ORCHESTRATORE] Avvio Task Formazione Avviso Ex-COBOL (PDCFOAVV)...")
-        formazione_avviso_worker = FormazioneAvvisoEngineProcessor()
-        formazione_avviso_worker.run()
+        elif effective_tipo_elab == "firma_ruoli":
+            BatchLogger.info("STEP-FIRMA-RUOLI", "Avvio fase di Firma Ruoli...")
+            # Invocazione del processor dedicato alla firma ruoli
 
-        # 3. Nuovo modulo applicativo ex-COBOL (Postalizzazione e Formazione)
-        #print("\n[ORCHESTRATORE] Avvio Task Postalizzazione Ex-COBOL (ADCFRT18)...")
-        #postalizzazione_worker = PostalizzazioneEngineProcessor()
-        #postalizzazione_worker.run()
+        elif effective_tipo_elab == "invio_ruoli_AdER":
+            BatchLogger.info("STEP-INVIO-ADER", "Avvio fase di Invio Ruoli ad Agenzia delle Entrate-Riscossione...")
+            # Invocazione del processor dedicato allinvio AdER
 
-        # ---------------------------------------------------------------------
-        # INTEGRAZIONE PRO: NUOVO MODULO APPLICATIVO EX-COBOL (MOMENTANEAMENTE COMMENTATO)
-        # ---------------------------------------------------------------------
-        #print("\n[ORCHESTRATORE] Avvio esecuzione Task Migrazione Db2-SqlServer...")
-        #provvigioni_worker = Migrationprocessor()
-        #provvigioni_worker.run()
-        # ---------------------------------------------------------------------
+        elif effective_tipo_elab == "gestione_avvisi":
+            BatchLogger.info("WORKFLOW-COMPLETO", "Esecuzione sequenziale di tutte le fasi batch...")
+
+            BatchLogger.info("WORKFLOW-COMPLETO", ">> [1/5] Formazione Avviso")
+            esegui_formazione_avviso(args, effective_sk_date)
+
+            BatchLogger.info("WORKFLOW-COMPLETO", ">> [2/5] Postalizzazione")
+            # Invocazione postalizzazione
+
+            BatchLogger.info("WORKFLOW-COMPLETO", ">> [3/5] Formazione Ruoli")
+            # Invocazione formazione ruoli
+
+            BatchLogger.info("WORKFLOW-COMPLETO", ">> [4/5] Firma Ruoli")
+            # Invocazione firma ruoli
+
+            BatchLogger.info("WORKFLOW-COMPLETO", ">> [5/5] Invio Ruoli AdER")
+            # Invocazione invio AdER
 
     except ConfigurationError as env_error:
-        print(f"[ERR_ENVIRONMENT] Blocco critico di configurazione: {env_error}", file=sys.stderr)
+        BatchLogger.error("ERR_ENVIRONMENT", str(env_error))
+        exit_code = 2
     except Exception as general_error:
-        print(f"[ERR_SYSTEM] Errore imprevisto nell'architettura: {general_error}", file=sys.stderr)
+        BatchLogger.error("ERR_SYSTEM", str(general_error))
+        exit_code = 1
     finally:
-        # Il provider chiude in sicurezza i canali attivi indipendentemente da quale worker ha girato
         DefaultConnectionProvider().close()
-        print("[ORCHESTRATORE] Shutdown del sistema e rilascio socket completato.")
+
+    sys.exit(exit_code)
 
 
 if __name__ == "__main__":

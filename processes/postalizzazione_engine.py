@@ -38,7 +38,7 @@ class PostalizzazioneEngineProcessor(BaseProcessModel):
         print(f"   Provider Rete Attivo: {self.provider.upper()}")
         print("======================================================================")
 
-        t18_map = self.get_table_map("stato_formazione")
+        t18_map = self.get_table_map("ADCFRT18")
 
         # ------------------------------------------------------------------
         # 1. PARAGRAFO: OPERAZIONI-INIZIALI & CURRENT DATE
@@ -55,7 +55,7 @@ class PostalizzazioneEngineProcessor(BaseProcessModel):
         print("   >> [CNTR-STATO-FORMAZIONE] Controllo finestre temporali e stato lavorazione...")
 
         query_builder = (
-            self.dataset("stato_formazione")
+            self.dataset("ADCFRT18")
             .select("dcon", "diniinf", "dfininf", "dinifor", "dfinfor", "fstfor", "tmsini", "tmsfin")
             .filter_by("dinifor", "<=", current_system_date)
             .filter_by("dfinfor", ">=", current_system_date)
@@ -102,7 +102,7 @@ class PostalizzazioneEngineProcessor(BaseProcessModel):
 
         current_timestamp = datetime.now()
         update_query = (
-            self.dataset("stato_formazione")
+            self.dataset("ADCFRT18")
             .filter_by("dcon", "=", self.ws_dcon)
             .filter_by("diniinf", "=", self.ws_diniinf)
             .compile_update({
@@ -129,6 +129,6 @@ class PostalizzazioneEngineProcessor(BaseProcessModel):
 
 
 if __name__ == "__main__":
-    os.environ["EXTERNAL_DB_CONFIG_PATH"] = r"C:\Users\mmuzi\config\app_db_config.json"
+    os.environ["EXTERNAL_DB_CONFIG_PATH"] = r"C:\Users\maurizio.muzi\config\app_db_config.json"
     worker = PostalizzazioneEngineProcessor()
     worker.run()

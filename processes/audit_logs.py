@@ -16,11 +16,11 @@ class AuditLogsProcessor(BaseProcessModel):
 
     def _execute_business_logic(self):
         # Risoluzione ereditata nativamente dalla classe base
-        agenda_map = self.get_table_map("agenda_lavori")
-        flussi_map = self.get_table_map("flussi_telematici")
+        agenda_map = self.get_table_map("ADCTET17")
+        flussi_map = self.get_table_map("ADCTET11")
 
         print("\n--- SCENARIO 1: STRUTTURA CURSORE SEQUENZIALE MASSIVO (MIMIC COBOL) ---")
-        query_stream = (self.dataset("agenda_lavori")
+        query_stream = (self.dataset("ADCTET17")
                         .select("sede", "zona")
                         .with_uncommitted_read()  # Genera WITH UR su DB2 o (NOLOCK) su SQL Server
                         .compile_select())
@@ -72,7 +72,7 @@ class AuditLogsProcessor(BaseProcessModel):
                 "tot_carico": 0.0, "tot_r7l": 0
             }
         ]
-        inseriti = self.execute_bulk_insert("flussi_telematici", dataset_nuovi_flussi)
+        inseriti = self.execute_bulk_insert("ADCTET11", dataset_nuovi_flussi)
         print(f"   [BULK] Scrittura massiva completata. Record inseriti: {inseriti}")
 
         print("\n--- SCENARIO 3: UPDATE MASSIVO CON JOIN TRA TABELLE (CORRELATO) ---")

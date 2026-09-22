@@ -1,9 +1,56 @@
 # database/manager.py
-import threading
 import os
 import json
+import threading
+from pathlib import Path
+
 from config.loader import ConfigurationError
 from config.schema_mapper import SchemaMapper, TableMap
+
+# Manteniamo vivi gli handle delle DLL registrate per la durata del processo su Windows
+_DB2_DLL_HANDLES = []
+_DB2_INITIALIZED = False
+
+
+def _setup_db2_environment():
+    """
+    Configura le cartelle DLL del CLI Driver di IBM DB2 per sistemi Windows,
+    garantendo che l'importazione di ibm_db vada a buon fine.
+    """
+    global _DB2_INITIALIZED
+    if _DB2_INITIALIZED:
+        return
+
+    if os.name == "nt":
+        # Calcola la radice del progetto: database/.. -> root del progetto
+        project_root = Path(__file__).resolve().parent.parent
+        clidriver_bin = (
+            project_root
+            / ".venv"
+            / "Lib"
+            / "site-packages"
+            / "clidriver"
+            / "bin"
+        )
+        vc12_dir = clidriver_bin / "amd64.VC12.CRT"
+
+        # Aggiorna il PATH di processo
+        os.environ["PATH"] = (
+            str(vc12_dir)
+            + os.pathsep
+            + str(clidriver_bin)
+            + os.pathsep
+            + os.environ.get("PATH", "")
+        )
+
+        # Registrazione esplicita per Python 3.8+
+        if vc12_dir.exists():
+            _DB2_DLL_HANDLES.append(os.add_dll_directory(str(vc12_dir)))
+
+        if clidriver_bin.exists():
+            _DB2_DLL_HANDLES.append(os.add_dll_directory(str(clidriver_bin)))
+
+    _DB2_INITIALIZED = True
 
 
 class DefaultConnectionProvider:
@@ -38,14 +85,35 @@ class DefaultConnectionProvider:
 
             try:
                 if self._provider == "db2":
+                    # Configura le DLL prima dell'import
+                    _setup_db2_environment()
                     import ibm_db
-                    conn_str = f"DATABASE={db_config['database']};HOSTNAME={db_config['hostname']};PORT={db_config['port']};PROTOCOL=TCPIP;UID={db_config['username']};PWD={db_config['password']};"
+
+                    conn_str = (
+                        f"DATABASE={db_config['database']};"
+                        f"HOSTNAME={db_config['hostname']};"
+                        f"PORT={db_config['port']};"
+                        f"PROTOCOL=TCPIP;"
+                        f"UID={db_config['username']};"
+                        f"PWD={db_config['password']};"
+                    )
                     self._conn = ibm_db.pconnect(conn_str, "", "")
+
                 elif self._provider == "sqlserver":
                     import pyodbc
-                    conn_str = f"DRIVER={{{db_config['driver']}}};SERVER={db_config['server']};DATABASE={db_config['database']};UID={db_config['username']};PWD={db_config['password']};Encrypt=yes;TrustServerCertificate=yes;"
+                    conn_str = (
+                        f"DRIVER={{{db_config['driver']}}};"
+                        f"SERVER={db_config['server']};"
+                        f"DATABASE={db_config['database']};"
+                        f"UID={db_config['username']};"
+                        f"PWD={db_config['password']};"
+                        f"Encrypt=yes;"
+                        f"TrustServerCertificate=yes;"
+                    )
                     self._conn = pyodbc.connect(conn_str)
+
                 return self._conn, self._provider
+
             except Exception as e:
                 raise RuntimeError(f"Errore connessione runtime '{alias}': {e}")
 
