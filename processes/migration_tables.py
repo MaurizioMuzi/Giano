@@ -11,7 +11,7 @@ class Migrationprocessor(BaseProcessModel):
     """
     Worker industriale dedicato alla migrazione fisica dei flussi telematici.
     Estrae da IBM DB2 e scrive in modalità Batch su SQL Server (FlussiTelematici),
-    utilizzando il file di mappatura logica 'flussi_telematici.json'[cite: 19].
+    utilizzando il file di mappatura logica 'ADCTET11.json'[cite: 19].
     """
 
     def __init__(self):
@@ -50,9 +50,9 @@ class Migrationprocessor(BaseProcessModel):
     def _execute_business_logic(self):
         import ibm_db
 
-        # Caricamento delle mappe per la tabella flussi_telematici
-        meta_source = SchemaMapper.get_map("flussi_telematici", self.provider_source)
-        meta_target = SchemaMapper.get_map("flussi_telematici", self.provider_target)
+        # Caricamento delle mappe per la tabella ADCTET11
+        meta_source = SchemaMapper.get_map("ADCTET11", self.provider_source)
+        meta_target = SchemaMapper.get_map("ADCTET11", self.provider_target)
 
         logical_columns = list(meta_source._columns.keys())
 
@@ -81,7 +81,7 @@ class Migrationprocessor(BaseProcessModel):
         raw_row = ibm_db.fetch_assoc(stmt_source)
 
         while raw_row:
-            # Normalizzazione basata sullo schema 'flussi_telematici.json'
+            # Normalizzazione basata sullo schema 'ADCTET11.json'
             logical_row = meta_source.normalize(raw_row)
 
             row_tuple = tuple(logical_row.get(col) for col in logical_columns)
@@ -109,7 +109,7 @@ class Migrationprocessor(BaseProcessModel):
 
 
 if __name__ == "__main__":
-    os.environ["EXTERNAL_DB_CONFIG_PATH"] = r"C:\Users\mmuzi\config\app_db_config.json"
+    os.environ["EXTERNAL_DB_CONFIG_PATH"] = r"C:\Users\maurizio.muzi\config\app_db_config.json"
 
     migration_worker = Migrationprocessor()
     migration_worker.run()
