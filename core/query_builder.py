@@ -47,9 +47,26 @@ class Dialect(ABC):
                               filter_condition: str) -> str:
         pass
 
-    @abstractmethod
     def format_value(self, value):
-        pass
+        if value is None:
+            return None
+
+        # Conversione standard ISO accettata nativamente da DB2 CLI per date/timestamp
+        if isinstance(value, datetime):
+            return value.strftime('%Y-%m-%d-%H.%M.%S.%f')
+        if isinstance(value, date):
+            return value.strftime('%Y-%m-%d')
+
+        if isinstance(value, str):
+            val_clean = value.strip()
+            # Standardizzazione stringhe fittizie
+            if val_clean in ("0001-01-01-00.00.00.000000", "0001-01-01 00:00:00.000000"):
+                return "0001-01-01-00.00.00.000000"
+            if val_clean == "0001-01-01":
+                return "0001-01-01"
+            return value
+
+        return value
 
 
 class DB2Dialect(Dialect):
@@ -122,10 +139,19 @@ class DB2Dialect(Dialect):
     def format_value(self, value):
         if value is None:
             return None
+        # Gestione e sanitizzazione stringhe COBOL fittizie
+        if isinstance(value, str):
+            val_clean = value.strip()
+            if val_clean in ("0001-01-01-00.00.00.000000", "0001-01-01 00:00:00.000000"):
+                return datetime(1, 1, 1, 0, 0, 0)
+            if val_clean == "0001-01-01":
+                return date(1, 1, 1)
+            return value
+
         if isinstance(value, datetime):
-            return value.strftime('%Y-%m-%d-%H.%M.%S.%f')
+            return value
         if isinstance(value, date):
-            return value.strftime('%Y-%m-%d')
+            return value
         return value
 
 
@@ -219,7 +245,6 @@ class ExistsSubquery:
         self._params: List[Any] = []
 
     def correlate(self, sub_logical_col: str, parent_logical_col: str, parent_table_map: TableMap, operator: str = "="):
-        """Correlazione scalare tra sottoquery e tabella esterna: alias_sub.COL = alias_parent.COL."""
         phys_sub = getattr(self._map, sub_logical_col)
         phys_parent = getattr(parent_table_map, parent_logical_col)
         p_prefix = f"{self._parent_alias}." if self._parent_alias else ""
@@ -227,10 +252,6 @@ class ExistsSubquery:
         return self
 
     def correlate_mismatch(self, *logical_cols: str, parent_table_map: TableMap, operator: str = "<>"):
-        """
-        Risolve dinamicamente una disgiunzione (OR) di disuguaglianza tra colonne correlate.
-        Genera ad es.: (B.CGES <> A.CGES OR B.CSED <> A.CSED OR B.ANNOAVV <> A.ANNOAVV ...)
-        """
         if not logical_cols:
             return self
 
@@ -246,7 +267,6 @@ class ExistsSubquery:
         return self
 
     def filter_by(self, logical_col: str, operator: str, value: Any):
-        """Filtro scalare o insiemistico con parametri posizionali sicuri."""
         phys = getattr(self._map, logical_col)
         col_ref = f"{self._alias}.{phys}"
         op_clean = operator.strip().upper()
@@ -263,7 +283,6 @@ class ExistsSubquery:
         return self
 
     def compile(self) -> tuple[str, list]:
-        """Restituisce la clausola 'EXISTS (SELECT 1 FROM TAB B WHERE ...)' e i relativi parametri."""
         where_str = f" WHERE {' AND '.join(self._criteria)}" if self._criteria else ""
         sql = f"EXISTS (SELECT 1 FROM {self._map.name} {self._alias}{where_str})"
         return sql, self._params
@@ -447,19 +466,16 @@ class EntityModel:
             self._params.append(self._dialect.format_value(value))
 
     def exists(self, target_table_map: TableMap, alias: str = "B") -> ExistsSubquery:
-        """Crea una sottoquery EXISTS per la tabella specificata."""
         parent_alias = self._alias_self if self._joined_map else None
         return ExistsSubquery(target_table_map, alias, self._dialect, parent_alias=parent_alias)
 
     def where_exists(self, subquery: ExistsSubquery):
-        """Aggancia la sottoquery con condizione WHERE EXISTS (...) e ne accumula i parametri."""
         sql, sub_params = subquery.compile()
         self._criteria.append(sql)
         self._params.extend(sub_params)
         return self
 
     def where_not_exists(self, subquery: ExistsSubquery):
-        """Aggancia la sottoquery con condizione WHERE NOT EXISTS (...) e ne accumula i parametri."""
         sql, sub_params = subquery.compile()
         self._criteria.append(f"NOT {sql}")
         self._params.extend(sub_params)
@@ -537,3 +553,18 @@ class EntityModel:
 
         sql = self._dialect.compile_update(self._map.name, set_clause, where_clause)
         return CompiledQuery(sql, total_params)
+
+    def compile_insert(self, data: Dict[str, Any]) -> CompiledQuery:
+        """Compila un'istruzione INSERT trasformando i nomi logici in colonne fisiche e sanitizzando i valori."""
+        phys_cols = []
+        placeholders = []
+        insert_params = []
+
+        for logical_col, val in data.items():
+            physical_col = getattr(self._map, logical_col, logical_col)
+            phys_cols.append(physical_col)
+            placeholders.append("?")
+            insert_params.append(self._dialect.format_value(val))
+
+        sql = f"INSERT INTO {self._map.name} ({', '.join(phys_cols)}) VALUES ({', '.join(placeholders)})"
+        return CompiledQuery(sql, tuple(insert_params))

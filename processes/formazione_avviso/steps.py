@@ -460,7 +460,6 @@ class ElaborazioneCurjoi2Step(BaseFormazioneStep):
             return -1
 
     def _parse_decimal(self, value) -> Decimal:
-        """Esegue il cast sicuro a Decimal con gestione fallback a 0 in caso di valori None o non validi."""
         if value is None:
             return Decimal("0")
         val_str = str(value).strip()
@@ -472,44 +471,34 @@ class ElaborazioneCurjoi2Step(BaseFormazioneStep):
             return Decimal("0")
 
     def _valida_congruita_riga_t01(self, ctx: FormazioneAvvisoContext, row_t01: dict, depth: int = 4) -> None:
-        """
-        Verifica sequenziale di congruenza della singola riga CDCFRT01 rispetto ai dati consolidati dell'avviso.
-        Reingegnerizza la catena di controlli COBOL da EXX381 a EXX534 con logica fail-fast.
-        """
         if ctx.ws_erravv.strip():
             return
 
-        # 1. EXX381 - Controllo Numero Partita Avviso (NPARAVV)
         if (row_t01.get("numPartitaAvviso") or 0) != (ctx.ws_nparavv or 0):
             ctx.ws_erravv = "EXX381"
             BatchLogger.warn("VAL-CONGRUITA", f"Partita non conforme: {row_t01.get('numPartitaAvviso')} <> atteso {ctx.ws_nparavv} (ERR: EXX381)", depth=depth)
             return
 
-        # 2. EXX382 - Controllo Tipo Avviso (TIPOAVV)
         if str(row_t01.get("tipoAvviso") or "").strip() != str(getattr(ctx, "ws_tipoavv", "")).strip():
             ctx.ws_erravv = "EXX382"
             BatchLogger.warn("VAL-CONGRUITA", f"Tipo avviso non conforme: {row_t01.get('tipoAvviso')} <> atteso {getattr(ctx, 'ws_tipoavv', '')} (ERR: EXX382)", depth=depth)
             return
 
-        # 3. EXX383 - Controllo Codice Fiscale (CFIS)
         if str(row_t01.get("codiceFiscale") or "").strip() != str(ctx.ws_cfis or "").strip():
             ctx.ws_erravv = "EXX383"
             BatchLogger.warn("VAL-CONGRUITA", f"Codice fiscale non conforme: {row_t01.get('codiceFiscale')} <> atteso {ctx.ws_cfis} (ERR: EXX383)", depth=depth)
             return
 
-        # 4. EXX384 - Controllo Sede (CSED)
         if str(row_t01.get("sede") or "").strip() != str(ctx.ws_sede or "").strip():
             ctx.ws_erravv = "EXX384"
             BatchLogger.warn("VAL-CONGRUITA", f"Sede non conforme: {row_t01.get('sede')} <> atteso {ctx.ws_sede} (ERR: EXX384)", depth=depth)
             return
 
-        # 5. EXX385 - Controllo Zona (CZON)
         if str(row_t01.get("zona") or "").strip() != str(ctx.ws_zona or "").strip():
             ctx.ws_erravv = "EXX385"
             BatchLogger.warn("VAL-CONGRUITA", f"Zona non conforme: {row_t01.get('zona')} <> atteso {ctx.ws_zona} (ERR: EXX385)", depth=depth)
             return
 
-        # 6. EXX386 - Controllo Codice Azienda (CAZI) - solo se Gestione != 7 e != 8
         cges = str(row_t01.get("gestione") or "").strip()
         if cges not in ("7", "8"):
             if str(row_t01.get("codAzienda") or "").strip() != str(getattr(ctx, "ws_cazi", "")).strip():
@@ -517,7 +506,6 @@ class ElaborazioneCurjoi2Step(BaseFormazioneStep):
                 BatchLogger.warn("VAL-CONGRUITA", f"Codice azienda non conforme: {row_t01.get('codAzienda')} <> atteso {getattr(ctx, 'ws_cazi', '')} (ERR: EXX386)", depth=depth)
                 return
 
-        # 7. EXX387 - Controllo Codice Atto (CATT) e Sequenzialità Esposizione Partita (NESPAVV)
         catt_corrente = str(row_t01.get("codiceAtto") or "").strip()
         nesp_corrente = int(row_t01.get("numEspAvviso") or 0)
         ws_catt = str(getattr(ctx, "ws_catt", "")).strip()
@@ -535,25 +523,21 @@ class ElaborazioneCurjoi2Step(BaseFormazioneStep):
         else:
             ctx.ws_nespavv = nesp_corrente
 
-        # 8. EXX388 - Controllo Periodo (PERIODO)
         if str(row_t01.get("periodo") or "").strip() != str(getattr(ctx, "ws_periodo", "")).strip():
             ctx.ws_erravv = "EXX388"
             BatchLogger.warn("VAL-CONGRUITA", f"Periodo non conforme: {row_t01.get('periodo')} <> atteso {getattr(ctx, 'ws_periodo', '')} (ERR: EXX388)", depth=depth)
             return
 
-        # 9. EXX389 - Controllo Periodo Biennale (PERIOBI)
         if str(row_t01.get("periodoBi") or "").strip() != str(getattr(ctx, "ws_periobi", "")).strip():
             ctx.ws_erravv = "EXX389"
             BatchLogger.warn("VAL-CONGRUITA", f"Periodo biennale non conforme: {row_t01.get('periodoBi')} <> atteso {getattr(ctx, 'ws_periobi', '')} (ERR: EXX389)", depth=depth)
             return
 
-        # 10. EXX390 - Controllo Flag Rateizzazione (FRATEIZZ)
         if str(row_t01.get("flgRateizzazione") or "").strip() != str(getattr(ctx, "ws_frateiz", "")).strip():
             ctx.ws_erravv = "EXX390"
             BatchLogger.warn("VAL-CONGRUITA", f"Flag rateizzazione non conforme: {row_t01.get('flgRateizzazione')} <> atteso {getattr(ctx, 'ws_frateiz', '')} (ERR: EXX390)", depth=depth)
             return
 
-        # 11. EXX534 - Controllo Flag Validità Fiscale (FVALFIS con forzature)
         fvalfis = str(row_t01.get("flgValFiscale") or "").strip()
         f0 = str(getattr(ctx, "ws_forzatura0", "")).strip()
         f1 = str(getattr(ctx, "ws_forzatura1", "")).strip()
@@ -564,11 +548,6 @@ class ElaborazioneCurjoi2Step(BaseFormazioneStep):
             return
 
     def _imp_errore(self, ctx: FormazioneAvvisoContext, row_t01: dict, depth: int = 4) -> None:
-        """
-        Reingegnerizza il paragrafo IMP-ERRORE THRU IMP-ERRORE-EX.
-        Imposta il flag generale di errore su 'X', scrive nel log lo scarto dell'avviso
-        e predispone le variabili per la chiusura anticipata dell'elaborazione corrente.
-        """
         ctx.indic_errore = "X"
         BatchLogger.error(
             "SCARTO-AVVISO",
@@ -577,11 +556,6 @@ class ElaborazioneCurjoi2Step(BaseFormazioneStep):
         )
 
     def _on_rottura_avviso(self, ctx: FormazioneAvvisoContext, row_t01: dict = None, depth: int = 3, is_last: bool = False) -> None:
-        """
-        Reingegnerizza il blocco COBOL di rottura chiave avviso (ELSE di controllo chiave).
-        Se SW-ERRORE = 0 (nessun errore bloccante), esegue il paragrafo AGGIORNA-TABELLE,
-        quindi predispone il contesto per il nuovo avviso azzerando i contatori finanziari.
-        """
         if row_t01:
             BatchLogger.info("ROTTURA-CHIAVE", "**** ROTTURA CHIAVE **** [NUOVA CHIAVE AVVISO RILEVATA]", depth=depth)
             BatchLogger.debug(
@@ -602,7 +576,6 @@ class ElaborazioneCurjoi2Step(BaseFormazioneStep):
             )
             self._aggiorna_tabelle(ctx, depth=depth + 1)
         else:
-            # Singola emissione pulita a livello 3 senza doppioni o sotto-alberi anomali
             BatchLogger.warn(
                 "CHIUSURA-AVV",
                 f"Avviso {ctx.ws_annoavv}/{ctx.ws_progavv} SCARTATO ({ctx.ws_erravv}) -> Tot. Trib: 0.00 | Articoli: 0 | Salvataggio escluso",
@@ -610,7 +583,6 @@ class ElaborazioneCurjoi2Step(BaseFormazioneStep):
                 is_last=is_last
             )
 
-        # Reset variabili locali dell'avviso per garantire isolamento al credito successivo
         ctx.ws_itrbavv = Decimal("0")
         ctx.ws_iaggavv = Decimal("0")
         ctx.ws_nespart = 0
@@ -618,14 +590,9 @@ class ElaborazioneCurjoi2Step(BaseFormazioneStep):
         ctx.indic_errore = " "
 
     def _aggiorna_tabelle(self, ctx: FormazioneAvvisoContext, depth: int = 4) -> None:
-        """
-        Reingegnerizza il paragrafo AGGIORNA-TABELLE THRU AGGIORNA-TABELLE-EX
-        delegando l'intera pipeline di consolidamento alla classe dedicata.
-        """
         self.step_aggiorna_tabelle.execute(ctx, depth=depth)
 
     def _elabora_singolo_articolo(self, ctx: FormazioneAvvisoContext, row_t01: dict, row_t10: dict) -> None:
-        """Aggiorna i totalizzatori finanziari progressivi dell'avviso (tributo, aggio, numero articoli)."""
         itrb = self._parse_decimal(row_t10.get("impTributo"))
         iagg = self._parse_decimal(row_t10.get("impAggio"))
         ctx.ws_itrbavv += itrb
@@ -633,7 +600,6 @@ class ElaborazioneCurjoi2Step(BaseFormazioneStep):
         ctx.ws_nespart += 1
 
     def execute(self, ctx: FormazioneAvvisoContext) -> None:
-        """Metodo astratto di interfaccia."""
         pass
 
 
@@ -775,6 +741,17 @@ class ElaborazioneCurjoi1Step(BaseFormazioneStep):
             })
             ctx.righe_elaborate_sede = 0
 
+        # Esecuzione unica a fine ciclo delle sedi per aggiornamento di chiusura e statistiche finali
+        if ctx.indic_errore != "X":
+            self._aggiorna_tet17(ctx, is_last=True, depth=1)
+            ctx.indic_aggiorna_if = True
+
+        self._stampa_statistiche_curt17(ctx, depth=1)
+
+        self._operazioni_finali(ctx, depth=1)
+
+        BatchLogger.info("AVVISI-FORMATI", f"Elaborazione avvisi completata con successo", depth=1)
+
         if riepilogo_sedi:
             BatchLogger.separator(depth=1)
             BatchLogger.info("RIEPILOGO-SEDI", f"Elenco complessivo sedi esaminate ({tot_sedi} totali):", depth=1)
@@ -807,3 +784,76 @@ class ElaborazioneCurjoi1Step(BaseFormazioneStep):
         )
         righe_impattate = self.engine.execute_mutation(upd_tab17, depth=depth + 1)
         BatchLogger.info("UPD-STATO-T17", f"UPDATE ADCTET17 -> CDAS='IN' (Righe impattate: {righe_impattate})", depth=depth, is_last=is_last)
+
+    def _aggiorna_tet17(self, ctx: FormazioneAvvisoContext, is_last: bool = False, depth: int = 1) -> None:
+        """Aggiorna lo stato del record su ADCTET17 impostando il servizio a 'IF' a fine elaborazione."""
+        upd_tet17 = (
+            self.engine.dataset("ADCTET17")
+            .compile_update({
+                "codServizio": "IF",
+                "timestamp": datetime.now()
+            })
+        )
+        righe_impattate_if = self.engine.execute_mutation(upd_tet17, depth=depth + 1)
+        BatchLogger.info("UPD-STATO-T17", f"UPDATE ADCTET17 -> CDAS='IF' (Righe impattate: {righe_impattate_if})", depth=depth, is_last=is_last)
+
+    def _stampa_statistiche_curt17(self, ctx: FormazioneAvvisoContext, depth: int = 1) -> None:
+        """
+        Reingegnerizza il cursore CURT17 e la stampa del report statistico a fine elaborazione:
+          DECLARE CURT17 CURSOR FOR
+          SELECT COUNT(*), CDAS FROM ADCTET17 GROUP BY CDAS WITH UR FOR FETCH ONLY
+        """
+        BatchLogger.info("CURT17-STAT", "Elaborazione statistiche finali per stato servizio (CURT17)", depth=depth)
+
+        t17_map = self.engine.get_table_map("ADCTET17")
+
+        query_curt17 = (
+            self.engine.dataset("ADCTET17")
+            .select_raw("COUNT(*) AS TOT_CONTA")
+            .select("codServizio")
+            .group_by("codServizio")
+            .with_uncommitted_read()
+            .compile_select()
+        )
+
+        rows = self.engine.fetch(query_curt17, depth=depth + 1)
+
+        if not rows:
+            BatchLogger.info("CURT17-STAT", "Nessun dato statistico disponibile su ADCTET17", depth=depth + 1)
+            return
+
+        BatchLogger.info("STAT-REP", "===================================================", depth=depth + 1)
+        BatchLogger.info("STAT-REP", "TOTALE DELLE SEDI ELABORATE PER LA FORMAZIONE RUOLI", depth=depth + 1)
+        BatchLogger.info("STAT-REP", "===================================================", depth=depth + 1)
+        BatchLogger.info("STAT-REP", "TOT.    C.STATO", depth=depth + 1)
+        BatchLogger.info("STAT-REP", "----------------", depth=depth + 1)
+
+        for row in rows:
+            tot_conta = row.get("TOT_CONTA") or row.get("COUNT") or list(row.values())[0]
+            cdas_val = row.get("codServizio") or row.get("CDAS") or list(row.values())[1]
+
+            det_line = f"{str(tot_conta).ljust(7)} {str(cdas_val).ljust(8)}"
+            BatchLogger.info("STAT-DET", det_line, depth=depth + 1)
+
+        BatchLogger.info("STAT-REP", "----------------", depth=depth + 1, is_last=True)
+
+
+    def _operazioni_finali(self, ctx: FormazioneAvvisoContext, depth: int = 1) -> None:
+        """
+        Aggiornamento della tabella pilota ADCFRT18 per la colonna FSTFOR = '2' ( TERMINATO ):
+        """
+        BatchLogger.info("OPERAZIONI-FINALI", "Elaborazione finale del flusso", depth=depth)
+
+        upd = (
+            self.engine.dataset("ADCFRT18")
+            .filter_by("dcon", "=", ctx.dcon)
+            .filter_by("diniinf", "=", ctx.diniinf)
+            .compile_update({
+                "fstfor": "3",
+                "tmsfin": datetime.now()
+            })
+        )
+        righe_modificate = self.engine.execute_mutation(upd, depth=1)
+        BatchLogger.info("UPD-STATO-T18", f"UPDATE ADCFRT18 SET FSTFOR='3' -> Record impattati: {righe_modificate}", depth=1, is_last=True)
+        BatchLogger.separator(depth=0)
+
