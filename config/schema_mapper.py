@@ -55,13 +55,27 @@ class TableMap:
 
         try:
             if logical_type == "int":
+                if isinstance(value, int):
+                    return value
+                if isinstance(value, float):
+                    return int(value)
+                if isinstance(value, str):
+                    val_clean = value.strip().replace(" ", "")
+                    if not val_clean:
+                        return 0
+                    if "," in val_clean:
+                        val_clean = val_clean.replace(",", ".")
+                    if "." in val_clean:
+                        return int(float(val_clean))
+                    return int(val_clean)
                 return int(value)
             elif logical_type == "float":
+                if isinstance(value, str):
+                    return float(value.strip().replace(" ", "").replace(",", "."))
                 return float(value)
             elif logical_type == "date":
                 if isinstance(value, (date, datetime)):
                     return value if isinstance(value, date) else value.date()
-                # Se DB2 o COBOL restituiscono stringhe contratte tipo YYYYMMDD o YYYY-MM-DD
                 clean_str = str(value).replace("-", "").strip()
                 if len(clean_str) == 8:
                     return datetime.strptime(clean_str, "%Y%m%d").date()
