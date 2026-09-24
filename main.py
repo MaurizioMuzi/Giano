@@ -39,7 +39,7 @@ def parse_date_param(date_str):
 
 
 def load_config_parameters(config_path: str) -> dict:
-    """Estrae i parametri dal file JSON configurato."""
+    """Estrae i parametri operativi e di logging dal file JSON configurato."""
     if not os.path.exists(config_path):
         return {}
     try:
@@ -47,6 +47,7 @@ def load_config_parameters(config_path: str) -> dict:
             cfg = json.load(f)
 
         batch_params = cfg.get("batch_parameters", {})
+        logging_params = cfg.get("logging", {})
 
         # Risoluzione data_formazione_avviso
         raw_data = cfg.get("data_formazione_avviso") or batch_params.get("data_formazione_avviso")
@@ -59,15 +60,20 @@ def load_config_parameters(config_path: str) -> dict:
 
         return {
             "data_formazione_avviso": parsed_data,
-            "tipo_elaborazione": tipo_elab
+            "tipo_elaborazione": tipo_elab,
+            "log_dir": logging_params.get("log_dir"),
+            "log_console": logging_params.get("log_console"),
+            "log_file": logging_params.get("log_file")
         }
     except Exception as err:
         print(f"[WARN] Impossibile recuperare i parametri dal file JSON: {err}", file=sys.stderr)
         return {}
 
 
-def resolve_log_level(level_name: str, default: int = logging.INFO) -> int:
+def resolve_log_level(level_name=None, default: int = logging.INFO) -> int:
     """Mappa la stringa del livello di log al relativo intero del modulo logging."""
+    if not level_name:
+        return default
     mapping = {
         "DEBUG": logging.DEBUG,
         "INFO": logging.INFO,
@@ -75,7 +81,7 @@ def resolve_log_level(level_name: str, default: int = logging.INFO) -> int:
         "WARNING": logging.WARNING,
         "ERROR": logging.ERROR
     }
-    return mapping.get(level_name.strip().upper(), default)
+    return mapping.get(str(level_name).strip().upper(), default)
 
 
 def parse_args():
@@ -113,24 +119,24 @@ def parse_args():
     parser.add_argument(
         "--log-dir",
         type=str,
-        default="logs",
-        help="Cartella di destinazione per i file di log .txt (default: 'logs')"
+        default=None,
+        help="Cartella di destinazione per i file di log .txt (default: letta da JSON o 'logs')"
     )
 
     parser.add_argument(
         "--log-console",
         type=str,
-        default="INFO",
+        default=None,
         choices=["DEBUG", "INFO", "WARN", "ERROR"],
-        help="Livello minimo di tracciamento su console (default: INFO)"
+        help="Livello minimo di tracciamento su console (default: letto da JSON o INFO)"
     )
 
     parser.add_argument(
         "--log-file",
         type=str,
-        default="DEBUG",
+        default=None,
         choices=["DEBUG", "INFO", "WARN", "ERROR"],
-        help="Livello minimo di tracciamento su file .txt (default: DEBUG)"
+        help="Livello minimo di tracciamento su file .txt (default: letto da JSON o DEBUG)"
     )
 
     return parser.parse_args()
@@ -154,24 +160,30 @@ def main():
     args = parse_args()
     os.environ["EXTERNAL_DB_CONFIG_PATH"] = args.config_path
 
-    # Inizializzazione Logger
-    console_lvl = resolve_log_level(args.log_console, logging.INFO)
-    file_lvl = resolve_log_level(args.log_file, logging.DEBUG)
-
-    BatchLogger.setup_logger(
-        log_dir=args.log_dir,
-        console_level=console_lvl,
-        file_level=file_lvl
-    )
-
-    # Caricamento parametri da file JSON
+    # 1. Caricamento parametri dal file JSON di configurazione
     config_params = load_config_parameters(args.config_path)
+
+    # 2. Risoluzione preliminare del tipo elaborazione per denominare il file di log
+    effective_tipo_elab = args.tipo_elaborazione or config_params.get("tipo_elaborazione") or "formazione_avviso"
+
+    # 3. Risoluzione cartella e livelli di logging (CLI > JSON > Default)
+    effective_log_dir = args.log_dir or config_params.get("log_dir") or "logs"
+    effective_log_console = args.log_console or config_params.get("log_console") or "INFO"
+    effective_log_file = args.log_file or config_params.get("log_file") or "DEBUG"
+
+    console_lvl = resolve_log_level(effective_log_console, logging.INFO)
+    file_lvl = resolve_log_level(effective_log_file, logging.DEBUG)
+
+    # 4. Inizializzazione unificata del Logger con prefisso dinamico da effective_tipo_elab
+    BatchLogger.setup_logger(
+        log_dir=effective_log_dir,
+        console_level=console_lvl,
+        file_level=file_lvl,
+        log_prefix=effective_tipo_elab
+    )
 
     # Risoluzione data contabile
     effective_sk_date = args.sk_data_elab or config_params.get("data_formazione_avviso")
-
-    # Risoluzione tipo elaborazione (CLI > JSON > default 'formazione_avviso')
-    effective_tipo_elab = args.tipo_elaborazione or config_params.get("tipo_elaborazione") or "formazione_avviso"
 
     if effective_tipo_elab not in ELABORAZIONI_VALIDE:
         BatchLogger.error(
@@ -181,6 +193,7 @@ def main():
         sys.exit(1)
 
     BatchLogger.info("ORCHESTRATORE", f"Target di Elaborazione Selezionato: [{effective_tipo_elab.upper()}]")
+    BatchLogger.info("LOG-CONFIG", f"Livello Console: [{effective_log_console.upper()}] | Livello File: [{effective_log_file.upper()}]")
 
     exit_code = 0
     try:
@@ -189,19 +202,15 @@ def main():
 
         elif effective_tipo_elab == "postalizzazione":
             BatchLogger.info("STEP-POSTALIZZAZIONE", "Avvio fase di Postalizzazione...")
-            # Invocazione del processor dedicato alla postalizzazione
 
         elif effective_tipo_elab == "formazione_ruoli":
             BatchLogger.info("STEP-FORMAZIONE-RUOLI", "Avvio fase di Formazione Ruoli...")
-            # Invocazione del processor dedicato alla formazione ruoli
 
         elif effective_tipo_elab == "firma_ruoli":
             BatchLogger.info("STEP-FIRMA-RUOLI", "Avvio fase di Firma Ruoli...")
-            # Invocazione del processor dedicato alla firma ruoli
 
         elif effective_tipo_elab == "invio_ruoli_AdER":
             BatchLogger.info("STEP-INVIO-ADER", "Avvio fase di Invio Ruoli ad Agenzia delle Entrate-Riscossione...")
-            # Invocazione del processor dedicato allinvio AdER
 
         elif effective_tipo_elab == "gestione_avvisi":
             BatchLogger.info("WORKFLOW-COMPLETO", "Esecuzione sequenziale di tutte le fasi batch...")
@@ -210,16 +219,12 @@ def main():
             esegui_formazione_avviso(args, effective_sk_date)
 
             BatchLogger.info("WORKFLOW-COMPLETO", ">> [2/5] Postalizzazione")
-            # Invocazione postalizzazione
 
             BatchLogger.info("WORKFLOW-COMPLETO", ">> [3/5] Formazione Ruoli")
-            # Invocazione formazione ruoli
 
             BatchLogger.info("WORKFLOW-COMPLETO", ">> [4/5] Firma Ruoli")
-            # Invocazione firma ruoli
 
             BatchLogger.info("WORKFLOW-COMPLETO", ">> [5/5] Invio Ruoli AdER")
-            # Invocazione invio AdER
 
     except ConfigurationError as env_error:
         BatchLogger.error("ERR_ENVIRONMENT", str(env_error))

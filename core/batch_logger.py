@@ -32,7 +32,8 @@ class BatchLogger:
             cls,
             log_dir: str = "logs",
             file_level: int = logging.DEBUG,
-            console_level: int = logging.INFO
+            console_level: int = logging.INFO,
+            log_prefix: str = "BATCH"
     ) -> None:
         if cls._logger is not None:
             return
@@ -49,10 +50,12 @@ class BatchLogger:
         console_handler.setFormatter(formatter)
         cls._logger.addHandler(console_handler)
 
-        # 2. Handler File .txt
+        # 2. Handler File .txt con prefisso dinamico
         os.makedirs(log_dir, exist_ok=True)
         date_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-        log_file_path = os.path.join(log_dir, f"PDCFOAVV_{date_str}.txt")
+        clean_prefix = str(log_prefix).strip()
+        log_file_path = os.path.join(log_dir, f"{clean_prefix}_{date_str}.txt")
+
         file_handler = logging.FileHandler(log_file_path, mode="a", encoding="utf-8")
         file_handler.setLevel(file_level)
         file_handler.setFormatter(formatter)

@@ -1,5 +1,4 @@
 # processes/formazione_avviso/steps.py
-from abc import ABC, abstractmethod
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from .context import FormazioneAvvisoContext
@@ -9,129 +8,14 @@ from .step_tab14_for import AllineamentoAnagrafeStep as AllineamentoForStep
 from .step_aggiorna_tabelle import AggiornaTabelleStep
 
 
-class BaseFormazioneStep(ABC):
-    """Classe base astratta per tutti gli step della pipeline di formazione avvisi."""
-
-    def __init__(self, engine):
-        self.engine = engine
-
-    @abstractmethod
-    def execute(self, ctx: FormazioneAvvisoContext) -> None:
-        """Esegue l'elaborazione specifica dello step aggiornando il contesto condiviso."""
-        pass
-
-
-class StatoFormazioneStep(BaseFormazioneStep):
-    """Paragrafi: CNTR-STATO-FORMAZIONE e UPD-STATO-INI-FORM (ADCFRT18)."""
-
-    def execute(self, ctx: FormazioneAvvisoContext) -> None:
-        BatchLogger.info("INI-STATO-FOR", "STATO-FORMAZIONE (ADCFRT18)", depth=0)
-        t18_map = self.engine.get_table_map("ADCFRT18")
-        current_system_date = date.today()
-        fixed_dfinfor_date = date(2026, 8, 24)
-
-        query = (
-            self.engine.dataset("ADCFRT18")
-            .select("dcon", "diniinf", "dfininf", "dinifor", "dfinfor", "fstfor", "tmsini", "tmsfin")
-            .filter_by("dinifor", "<=", current_system_date)
-            .filter_by("dfinfor", ">=", fixed_dfinfor_date)
-            .filter_by("fstfor", "<>", "2")
-            .with_uncommitted_read()
-            .limit(1)
-            .compile_select()
-        )
-
-        rows = self.engine.fetch(query, depth=1)
-        if not rows:
-            BatchLogger.error("INI-STATO-FOR", "Nessun record valido in ADCFRT18. Formazione non consentita.", depth=1, is_last=True)
-            raise RuntimeError("[COBOL_EXCEPTION] FORMAZIONE NON CONSENTITA: Nessun record valido.")
-
-        row = t18_map.normalize(rows[0])
-        ctx.dcon = row.get("dcon")
-        ctx.diniinf = row.get("diniinf")
-        ctx.dfininf = row.get("dfininf")
-        ctx.dinifor = row.get("dinifor")
-        ctx.dfinfor = row.get("dfinfor")
-        ctx.fstfor = row.get("fstfor")
-
-        BatchLogger.info(
-            "REC-FINESTRA",
-            f"DCON={ctx.dcon} | Finestra Infasamento: {ctx.diniinf} -> {ctx.dfininf} | Stato={ctx.fstfor}",
-            depth=1
-        )
-
-        upd = (
-            self.engine.dataset("ADCFRT18")
-            .filter_by("dcon", "=", ctx.dcon)
-            .filter_by("diniinf", "=", ctx.diniinf)
-            .compile_update({
-                "fstfor": "1",
-                "tmsini": datetime.now()
-            })
-        )
-        righe_modificate = self.engine.execute_mutation(upd, depth=1)
-        BatchLogger.info("UPD-STATO-T18", f"UPDATE ADCFRT18 SET FSTFOR='1' -> Record impattati: {righe_modificate}", depth=1, is_last=True)
-        BatchLogger.separator(depth=0)
-
-
-class GestioneRipartenzeStep(BaseFormazioneStep):
-    """
-    Reingegnerizzazione dei paragrafi:
-      - GESTIONE-RIPARTENZE
-      - CONTA-SEDI
-      - CONTA-LAVORI
-      - AGGIORNA-LAVORI
-    """
-
-    def execute(self, ctx: FormazioneAvvisoContext) -> None:
-        BatchLogger.info("CHK-RIPARTENZE", "GESTIONE-RIPARTENZE (ADCTET17)", depth=0)
-
-        # CONTA-SEDI
-        q_sedi = (
-            self.engine.dataset("ADCTET17")
-            .count()
-            .with_uncommitted_read()
-            .compile_select()
-        )
-        res_sedi = self.engine.fetch(q_sedi, depth=1)
-        ctx.count_sedi = int(list(res_sedi[0].values())[0]) if res_sedi else 0
-
-        # CONTA-LAVORI
-        q_lavori = (
-            self.engine.dataset("ADCTET17")
-            .count()
-            .filter_by("codServizio", "IN", ("IF", "AV"))
-            .with_uncommitted_read()
-            .compile_select()
-        )
-        res_lavori = self.engine.fetch(q_lavori, depth=1)
-        ctx.count_lavori = int(list(res_lavori[0].values())[0]) if res_lavori else 0
-
-        BatchLogger.info("CONTA-LAV-T17", f"Sedi censite: {ctx.count_sedi} | Lavori qualificati (IF/AV): {ctx.count_lavori}", depth=1)
-
-        if ctx.count_lavori == ctx.count_sedi and ctx.count_sedi > 0:
-            upd_reset = (
-                self.engine.dataset("ADCTET17")
-                .compile_update({
-                    "codServizio": "AV",
-                    "timestamp": datetime(1, 1, 1, 0, 0, 0)
-                })
-            )
-            righe_aggiornate = self.engine.execute_mutation(upd_reset, depth=1)
-            BatchLogger.info("RESET-LAV-T17", f"WS-COUNT = WS-COUNT-SED -> Reset massivo eseguito. Impattati: {righe_aggiornate}", depth=1, is_last=True)
-        else:
-            BatchLogger.info("CHECK-LAV-T17", "WS-COUNT <> WS-COUNT-SED -> Nessun riallineamento massivo necessario", depth=1, is_last=True)
-        BatchLogger.separator(depth=0)
-
-
-class ElaborazioneCurjoi2Step(BaseFormazioneStep):
+class ElaborazioneCurjoi2Step:
     """
     Reingegnerizzazione del paragrafo CICLO-CURJOI-2:
     Join tra ADCFRT01 e ADCFRT10 con gestione rottura e valorizzazione IMP-COMODI-KEY.
     """
 
     def __init__(self, engine):
-        super().__init__(engine)
+        self.engine = engine
         self.step_cfis = AllineamentoCfisStep(engine)
         self.step_for = AllineamentoForStep(engine)
         self.step_aggiorna_tabelle = AggiornaTabelleStep(engine)
@@ -280,9 +164,6 @@ class ElaborazioneCurjoi2Step(BaseFormazioneStep):
         else:
             self._on_rottura_avviso(ctx, row_t01=None, depth=depth, is_last=is_last_credit)
 
-    # -----------------------------------------------------------------------------
-    # STEP 1: CONTROLLO CONGRUITÀ NUMERO PARTITE INFASATE
-    # -----------------------------------------------------------------------------
     def _cntr_key_avv(self, ctx: FormazioneAvvisoContext, depth: int = 4) -> int:
         try:
             query = (
@@ -299,19 +180,14 @@ class ElaborazioneCurjoi2Step(BaseFormazioneStep):
             )
             res = self.engine.fetch(query, depth=depth)
             return int(list(res[0].values())[0]) if res else 0
-
         except Exception as err:
             BatchLogger.error("CNTR-KEY-AVV", f"Errore DB in conteggio partite: {err}", depth=depth)
             ctx.indic_errore = "X"
             return -1
 
-    # -----------------------------------------------------------------------------
-    # STEP 2: CONTROLLO CONTINUITÀ NUMERAZIONE ARTICOLI PER AVVISO
-    # -----------------------------------------------------------------------------
     def _cntr_max_art(self, ctx: FormazioneAvvisoContext, depth: int = 4) -> int:
         t10_map = self.engine.get_table_map("ADCFRT10")
         col_prg_b = f"B.{t10_map.progArticolo}"
-
         try:
             query = (
                 self.engine.dataset("ADCFRT01")
@@ -335,18 +211,13 @@ class ElaborazioneCurjoi2Step(BaseFormazioneStep):
             )
             res = self.engine.fetch(query, depth=depth)
             return int(list(res[0].values())[0]) if res else 0
-
         except Exception as err:
             BatchLogger.error("CNTR-MAX-ART", f"Errore DB in conteggio numerazione sequenziale: {err}", depth=depth)
             ctx.indic_errore = "X"
             return -1
 
-    # -----------------------------------------------------------------------------
-    # STEP 3: CONTROLLO SOGLIA MASSIMA ARTICOLI INFASATI PER AVVISO
-    # -----------------------------------------------------------------------------
     def _cntr_key_art(self, ctx: FormazioneAvvisoContext, depth: int = 4) -> int:
         t10_map = self.engine.get_table_map("ADCFRT10")
-
         try:
             query = (
                 self.engine.dataset("ADCFRT01")
@@ -365,18 +236,13 @@ class ElaborazioneCurjoi2Step(BaseFormazioneStep):
             )
             res = self.engine.fetch(query, depth=depth)
             return int(list(res[0].values())[0]) if res else 0
-
         except Exception as err:
             BatchLogger.error("CNTR-KEY-ART", f"Errore DB in conteggio limite max 999: {err}", depth=depth)
             ctx.indic_errore = "X"
             return -1
 
-    # -----------------------------------------------------------------------------
-    # STEP 4: VERIFICA STATO BLOCCO CODICE FISCALE
-    # -----------------------------------------------------------------------------
     def _cntrl_cf_blk(self, ctx: FormazioneAvvisoContext, depth: int = 4) -> int:
         t62_map = self.engine.get_table_map("ADCFRT62")
-
         try:
             query = (
                 self.engine.dataset("ADCFRT62")
@@ -387,7 +253,6 @@ class ElaborazioneCurjoi2Step(BaseFormazioneStep):
                 .compile_select()
             )
             res = self.engine.fetch(query, depth=depth)
-
             if not res:
                 ctx.ws_flgblk = "0"
                 BatchLogger.info("CNTR-BLOCCO-CF", "Record CDCFRT62 assente -> CF non bloccato (WS-FLGBLK='0')", depth=depth)
@@ -404,21 +269,15 @@ class ElaborazioneCurjoi2Step(BaseFormazioneStep):
                 f" (DataUpd={dt_upd} in finestra [{ctx.diniinf}..{ctx.dfininf}])" if in_finestra else ""
             )
             BatchLogger.info("CNTR-BLOCCO-CF", f"{dettaglio} -> WS-FLGBLK='{ctx.ws_flgblk}'", depth=depth)
-
             return int(ctx.ws_flgblk)
-
         except Exception as err:
             BatchLogger.error("CNTR-BLOCCO-CF", f"Errore DB in verifica codice fiscale bloccato: {err}", depth=depth)
             ctx.indic_errore = "X"
             return -1
 
-    # -----------------------------------------------------------------------------
-    # STEP 5: ALLINEAMENTO INDIRIZZO ANAGRAFE TRIBUTARIA PER CF NON BLOCCATO
-    # -----------------------------------------------------------------------------
     def _cntrl_tab14_cfis(self, ctx: FormazioneAvvisoContext, depth: int = 4) -> int:
         t01_dataset = self.engine.dataset("ADCFRT01")
         t01_map = self.engine.get_table_map("ADCFRT01")
-
         try:
             sub_exists = (
                 t01_dataset.exists(t01_map, alias="B")
@@ -426,18 +285,11 @@ class ElaborazioneCurjoi2Step(BaseFormazioneStep):
                 .filter_by("dataInf", ">=", ctx.diniinf)
                 .filter_by("dataInf", "<=", ctx.dfininf)
                 .correlate_mismatch(
-                    "gestione",
-                    "sede",
-                    "zona",
-                    "annoAvviso",
-                    "tipoAvviso",
-                    "progAvviso",
-                    parent_table_map=t01_map,
-                    operator="<>"
+                    "gestione", "sede", "zona", "annoAvviso", "tipoAvviso", "progAvviso",
+                    parent_table_map=t01_map, operator="<>"
                 )
                 .filter_by("statoAttivita", "=", "0I")
             )
-
             query = (
                 t01_dataset
                 .count()
@@ -447,13 +299,10 @@ class ElaborazioneCurjoi2Step(BaseFormazioneStep):
                 .with_uncommitted_read()
                 .compile_select()
             )
-
             res = self.engine.fetch(query, depth=depth)
             count_val = int(list(res[0].values())[0]) if res else 0
-
             BatchLogger.info("CNTRL-T14-CFIS", f"WS-COUNT-CF calcolato: {count_val}", depth=depth)
             return count_val
-
         except Exception as err:
             BatchLogger.error("CNTRL-T14-CFIS", f"Errore DB in verifica codice fiscale con più avvisi: {err}", depth=depth)
             ctx.indic_errore = "X"
@@ -603,11 +452,11 @@ class ElaborazioneCurjoi2Step(BaseFormazioneStep):
         pass
 
 
-class ElaborazioneCurjoi12AStep(BaseFormazioneStep):
+class ElaborazioneCurjoi12AStep:
     """Estrazione dei crediti distinti da ADCFRT01 (CURJOI-2A)."""
 
     def __init__(self, engine):
-        super().__init__(engine)
+        self.engine = engine
         self.step_curjoi2 = ElaborazioneCurjoi2Step(engine)
 
     def execute(self, ctx: FormazioneAvvisoContext, depth: int = 2) -> None:
@@ -675,11 +524,11 @@ class ElaborazioneCurjoi12AStep(BaseFormazioneStep):
             )
 
 
-class ElaborazioneCurjoi1Step(BaseFormazioneStep):
+class ElaborazioneCurjoi1Step:
     """Scansione delle sedi di recapito (CURJOI-1 su ADCTET17)."""
 
     def __init__(self, engine):
-        super().__init__(engine)
+        self.engine = engine
         self.step_curjoi_2a = ElaborazioneCurjoi12AStep(engine)
 
     def execute(self, ctx: FormazioneAvvisoContext) -> None:
@@ -741,16 +590,10 @@ class ElaborazioneCurjoi1Step(BaseFormazioneStep):
             })
             ctx.righe_elaborate_sede = 0
 
-        # Esecuzione unica a fine ciclo delle sedi per aggiornamento di chiusura e statistiche finali
+        # Fine ciclo sedi: se non ci sono errori bloccanti, aggiorna lo stato generale IF
         if ctx.indic_errore != "X":
             self._aggiorna_tet17(ctx, is_last=True, depth=1)
             ctx.indic_aggiorna_if = True
-
-        self._stampa_statistiche_curt17(ctx, depth=1)
-
-        self._operazioni_finali(ctx, depth=1)
-
-        BatchLogger.info("AVVISI-FORMATI", f"Elaborazione avvisi completata con successo", depth=1)
 
         if riepilogo_sedi:
             BatchLogger.separator(depth=1)
@@ -786,7 +629,7 @@ class ElaborazioneCurjoi1Step(BaseFormazioneStep):
         BatchLogger.info("UPD-STATO-T17", f"UPDATE ADCTET17 -> CDAS='IN' (Righe impattate: {righe_impattate})", depth=depth, is_last=is_last)
 
     def _aggiorna_tet17(self, ctx: FormazioneAvvisoContext, is_last: bool = False, depth: int = 1) -> None:
-        """Aggiorna lo stato del record su ADCTET17 impostando il servizio a 'IF' a fine elaborazione."""
+        """Aggiorna massivamente lo stato del record su ADCTET17 impostando il servizio a 'IF' a fine elaborazione."""
         upd_tet17 = (
             self.engine.dataset("ADCTET17")
             .compile_update({
@@ -796,64 +639,3 @@ class ElaborazioneCurjoi1Step(BaseFormazioneStep):
         )
         righe_impattate_if = self.engine.execute_mutation(upd_tet17, depth=depth + 1)
         BatchLogger.info("UPD-STATO-T17", f"UPDATE ADCTET17 -> CDAS='IF' (Righe impattate: {righe_impattate_if})", depth=depth, is_last=is_last)
-
-    def _stampa_statistiche_curt17(self, ctx: FormazioneAvvisoContext, depth: int = 1) -> None:
-        """
-        Reingegnerizza il cursore CURT17 e la stampa del report statistico a fine elaborazione:
-          DECLARE CURT17 CURSOR FOR
-          SELECT COUNT(*), CDAS FROM ADCTET17 GROUP BY CDAS WITH UR FOR FETCH ONLY
-        """
-        BatchLogger.info("CURT17-STAT", "Elaborazione statistiche finali per stato servizio (CURT17)", depth=depth)
-
-        t17_map = self.engine.get_table_map("ADCTET17")
-
-        query_curt17 = (
-            self.engine.dataset("ADCTET17")
-            .select_raw("COUNT(*) AS TOT_CONTA")
-            .select("codServizio")
-            .group_by("codServizio")
-            .with_uncommitted_read()
-            .compile_select()
-        )
-
-        rows = self.engine.fetch(query_curt17, depth=depth + 1)
-
-        if not rows:
-            BatchLogger.info("CURT17-STAT", "Nessun dato statistico disponibile su ADCTET17", depth=depth + 1)
-            return
-
-        BatchLogger.info("STAT-REP", "===================================================", depth=depth + 1)
-        BatchLogger.info("STAT-REP", "TOTALE DELLE SEDI ELABORATE PER LA FORMAZIONE RUOLI", depth=depth + 1)
-        BatchLogger.info("STAT-REP", "===================================================", depth=depth + 1)
-        BatchLogger.info("STAT-REP", "TOT.    C.STATO", depth=depth + 1)
-        BatchLogger.info("STAT-REP", "----------------", depth=depth + 1)
-
-        for row in rows:
-            tot_conta = row.get("TOT_CONTA") or row.get("COUNT") or list(row.values())[0]
-            cdas_val = row.get("codServizio") or row.get("CDAS") or list(row.values())[1]
-
-            det_line = f"{str(tot_conta).ljust(7)} {str(cdas_val).ljust(8)}"
-            BatchLogger.info("STAT-DET", det_line, depth=depth + 1)
-
-        BatchLogger.info("STAT-REP", "----------------", depth=depth + 1, is_last=True)
-
-
-    def _operazioni_finali(self, ctx: FormazioneAvvisoContext, depth: int = 1) -> None:
-        """
-        Aggiornamento della tabella pilota ADCFRT18 per la colonna FSTFOR = '2' ( TERMINATO ):
-        """
-        BatchLogger.info("OPERAZIONI-FINALI", "Elaborazione finale del flusso", depth=depth)
-
-        upd = (
-            self.engine.dataset("ADCFRT18")
-            .filter_by("dcon", "=", ctx.dcon)
-            .filter_by("diniinf", "=", ctx.diniinf)
-            .compile_update({
-                "fstfor": "3",
-                "tmsfin": datetime.now()
-            })
-        )
-        righe_modificate = self.engine.execute_mutation(upd, depth=1)
-        BatchLogger.info("UPD-STATO-T18", f"UPDATE ADCFRT18 SET FSTFOR='3' -> Record impattati: {righe_modificate}", depth=1, is_last=True)
-        BatchLogger.separator(depth=0)
-
