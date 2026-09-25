@@ -20,6 +20,27 @@ class AggiornaTabelleStep:
 
     def __init__(self, engine):
         self.engine = engine
+        # 1. Leggiamo e memorizziamo la soglia una sola volta all'avvio dello step
+        self.size_commit = getattr(engine, "size_commit", getattr(engine, "commit_threshold", 1000))
+
+
+    def _verifica_e_committa_lotto(self, depth: int) -> None:
+        """Incrementa il contatore globale e fa il commit parziale usando la soglia memorizzata."""
+        if not hasattr(self.engine, "_record_counter"):
+            self.engine._record_counter = 0
+
+        self.engine._record_counter += 1
+
+        # 2. Usiamo direttamente la proprietà salvata, senza chiamate ripetute a getattr
+        if self.engine._record_counter >= self.size_commit:
+            BatchLogger.info(
+                "BATCH-COMMIT",
+                f"Raggiunta la soglia configurata di {self.size_commit} record. Esecuzione COMMIT parziale...",
+                depth=depth
+            )
+            self.engine.commit()
+            self.engine._record_counter = 0
+
 
     def execute(self, ctx: FormazioneAvvisoContext, depth: int = 4) -> None:
         BatchLogger.info(
@@ -161,13 +182,13 @@ class AggiornaTabelleStep:
                 slocatr = str(row_t14.get("locAnagrafeTrib") or "").strip()
 
                 indirizzo_uguale = (
-                    ws_cognome == scog and
-                    ws_nome == snom and
-                    ws_indirizzo == sindatr and
-                    ws_provincia == cproatr and
-                    ws_codcomune == ccomatr and
-                    ws_cap == ccapatr and
-                    ws_localita == slocatr
+                        ws_cognome == scog and
+                        ws_nome == snom and
+                        ws_indirizzo == sindatr and
+                        ws_provincia == cproatr and
+                        ws_codcomune == ccomatr and
+                        ws_cap == ccapatr and
+                        ws_localita == slocatr
                 )
 
                 if indirizzo_uguale:
@@ -434,7 +455,8 @@ class AggiornaTabelleStep:
                              depth=depth)
             self._aggiorna_tab10(ctx, cges, catt, depth=depth + 1)
 
-    def _aggiorna_tab01(self, ctx: FormazioneAvvisoContext, cges: str, catt: str, identificativo: str, depth: int) -> None:
+    def _aggiorna_tab01(self, ctx: FormazioneAvvisoContext, cges: str, catt: str, identificativo: str,
+                        depth: int) -> None:
         upd_t01 = (
             self.engine.dataset("ADCFRT01")
             .filter_by("gestione", "=", cges)
@@ -498,6 +520,9 @@ class AggiornaTabelleStep:
                 self.engine.execute_mutation(upd_t10, depth=depth)
                 righe_aggiornate += 1
 
+                # Check commit parziale basato sulla soglia configurata esternamente
+                self._verifica_e_committa_lotto(depth=depth)
+
         BatchLogger.debug(
             "AGGIORNA-TAB10",
             f"CATT={catt} -> Articoli aggiornati: {righe_aggiornate} (Ultimo progressivo: {ctx.ws_nespart})",
@@ -549,7 +574,8 @@ class AggiornaTabelleStep:
             ctx.indic_errore = "X"
             raise err
 
-    def _inserisci_spese_t01(self, ctx: FormazioneAvvisoContext, cges: str, catt: str, id_avviso: str, depth: int) -> dict:
+    def _inserisci_spese_t01(self, ctx: FormazioneAvvisoContext, cges: str, catt: str, id_avviso: str,
+                             depth: int) -> dict:
         t01_map = self.engine.get_table_map("ADCFRT01")
 
         query_t01_sel = (
@@ -576,7 +602,8 @@ class AggiornaTabelleStep:
 
         rows = self.engine.fetch(query_t01_sel, depth=depth)
         if not rows:
-            BatchLogger.warn("INSERISCI-SPESE-T01", f"Record master ADCFRT01 non trovato per CGES={cges} CATT={catt}", depth=depth)
+            BatchLogger.warn("INSERISCI-SPESE-T01", f"Record master ADCFRT01 non trovato per CGES={cges} CATT={catt}",
+                             depth=depth)
             return {}
 
         record_t01 = t01_map.normalize(rows[0])
@@ -641,10 +668,16 @@ class AggiornaTabelleStep:
 
         ins_t01 = self.engine.dataset("ADCFRT01").compile_insert(record_t01)
         righe = self.engine.execute_mutation(ins_t01, depth=depth)
-        BatchLogger.debug("INSERISCI-SPESE-T01", f"ADCFRT01 inserito con CATT={id_avviso} (Righe: {righe})", depth=depth)
+
+        # Check commit parziale
+        self._verifica_e_committa_lotto(depth=depth)
+
+        BatchLogger.debug("INSERISCI-SPESE-T01", f"ADCFRT01 inserito con CATT={id_avviso} (Righe: {righe})",
+                          depth=depth)
         return record_t01
 
-    def _inserisci_spese_t10(self, ctx: FormazioneAvvisoContext, cges: str, catt: str, id_avviso: str, depth: int) -> None:
+    def _inserisci_spese_t10(self, ctx: FormazioneAvvisoContext, cges: str, catt: str, id_avviso: str,
+                             depth: int) -> None:
         t10_map = self.engine.get_table_map("ADCFRT10")
         n_nprgart = getattr(ctx, "n_nprgart", 1)
 
@@ -761,13 +794,18 @@ class AggiornaTabelleStep:
 
         ins_t10 = self.engine.dataset("ADCFRT10").compile_insert(record_t10)
         righe = self.engine.execute_mutation(ins_t10, depth=depth)
+
+        # Check commit parziale
+        self._verifica_e_committa_lotto(depth=depth)
+
         BatchLogger.debug(
             "INSERISCI-SPESE-T10",
             f"ADCFRT10 spese inserito su CATT={id_avviso} (NPRGCAR={ctx.ws_nespart}, Righe: {righe})",
             depth=depth
         )
 
-    def _inserisci_spese_t14(self, ctx: FormazioneAvvisoContext, cges: str, catt: str, id_avviso: str, depth: int) -> None:
+    def _inserisci_spese_t14(self, ctx: FormazioneAvvisoContext, cges: str, catt: str, id_avviso: str,
+                             depth: int) -> None:
         t14_map = self.engine.get_table_map("ADCFRT14")
 
         query_t14_sel = (
@@ -789,7 +827,8 @@ class AggiornaTabelleStep:
 
         rows = self.engine.fetch(query_t14_sel, depth=depth)
         if not rows:
-            BatchLogger.warn("INSERISCI-SPESE-T14", f"Anagrafica ADCFRT14 non trovata per CGES={cges}, CATT={catt}", depth=depth)
+            BatchLogger.warn("INSERISCI-SPESE-T14", f"Anagrafica ADCFRT14 non trovata per CGES={cges}, CATT={catt}",
+                             depth=depth)
             return
 
         record_t14 = t14_map.normalize(rows[0])
@@ -812,6 +851,10 @@ class AggiornaTabelleStep:
         ins_t14 = (self.engine.dataset("ADCFRT14")
                    .compile_insert(record_t14))
         righe = self.engine.execute_mutation(ins_t14, depth=depth)
+
+        # Check commit parziale
+        self._verifica_e_committa_lotto(depth=depth)
+
         BatchLogger.debug(
             "INSERISCI-SPESE-T14",
             f"ADCFRT14 duplicato su CATT={id_avviso} con Tot. Tributi={ctx.ws_itrbavv} (Righe: {righe})",
@@ -902,6 +945,10 @@ class AggiornaTabelleStep:
 
         ins_t03 = self.engine.dataset("ADCFRT03").compile_insert(record_t03)
         righe = self.engine.execute_mutation(ins_t03, depth=depth)
+
+        # Check commit parziale
+        self._verifica_e_committa_lotto(depth=depth)
+
         BatchLogger.debug(
             "INSERISCI-TAB03",
             f"Testata ADCFRT03 inserita per avviso {ctx.ws_annoavv}/{ctx.ws_progavv} (Righe: {righe})",

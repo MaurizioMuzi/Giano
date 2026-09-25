@@ -39,7 +39,7 @@ def parse_date_param(date_str):
 
 
 def load_config_parameters(config_path: str) -> dict:
-    """Estrae i parametri operativi e di logging dal file JSON configurato."""
+    """Estrae i parametri operativi, di logging e di soglia commit dal file JSON configurato."""
     if not os.path.exists(config_path):
         return {}
     try:
@@ -49,11 +49,13 @@ def load_config_parameters(config_path: str) -> dict:
         batch_params = cfg.get("batch_parameters", {})
         logging_params = cfg.get("logging", {})
 
+        # Risoluzione soglia commit (cerca nel root o dentro batch_parameters, fallback a 1000)
+        size_commit = cfg.get("size_commit") or batch_params.get("size_commit") or 1000
+
         # Risoluzione data_formazione_avviso
         raw_data = cfg.get("data_formazione_avviso") or batch_params.get("data_formazione_avviso")
         parsed_data = parse_date_param(raw_data) if raw_data else None
 
-        # Risoluzione tipo_elaborazione
         tipo_elab = cfg.get("tipo_elaborazione") or batch_params.get("tipo_elaborazione")
         if tipo_elab:
             tipo_elab = str(tipo_elab).strip()
@@ -61,6 +63,7 @@ def load_config_parameters(config_path: str) -> dict:
         return {
             "data_formazione_avviso": parsed_data,
             "tipo_elaborazione": tipo_elab,
+            "size_commit": int(size_commit),
             "log_dir": logging_params.get("log_dir"),
             "log_console": logging_params.get("log_console"),
             "log_file": logging_params.get("log_file")
@@ -142,17 +145,20 @@ def parse_args():
     return parser.parse_args()
 
 
-def esegui_formazione_avviso(args, effective_sk_date):
-    """Inizializza ed esegue il processore di formazione avviso."""
+def esegui_formazione_avviso(args, effective_sk_date, config_params):
+    """Inizializza ed esegue il processore di formazione avviso passando la soglia di commit."""
     context = FormazioneAvvisoContext(sk_data_elab=effective_sk_date)
+    context.size_commit = config_params.get("size_commit", 1000)  # Salvato nel contesto
+
     BatchLogger.info("ORCHESTRATORE", f"SK-DATA-ELAB operativo: {context.sk_data_elab}")
-    BatchLogger.info("ORCHESTRATORE",
-                     f"Valore risultante DINF (CDCFRT01): {context.dinf_cdcfrt01.strftime('%d.%m.%Y')}")
+    BatchLogger.info("ORCHESTRATORE", f"Soglia COMMIT parziale configurata: {context.size_commit} record")
 
     worker = FormazioneAvvisoEngineProcessor(
         context=context,
         dry_run=args.dry_run
     )
+    # Passiamo la soglia anche all'engine/processore se necessario
+    worker.size_commit = context.size_commit
     worker.run()
 
 
@@ -198,7 +204,7 @@ def main():
     exit_code = 0
     try:
         if effective_tipo_elab == "formazione_avviso":
-            esegui_formazione_avviso(args, effective_sk_date)
+            esegui_formazione_avviso(args, effective_sk_date, config_params)
 
         elif effective_tipo_elab == "postalizzazione":
             BatchLogger.info("STEP-POSTALIZZAZIONE", "Avvio fase di Postalizzazione...")
@@ -216,7 +222,7 @@ def main():
             BatchLogger.info("WORKFLOW-COMPLETO", "Esecuzione sequenziale di tutte le fasi batch...")
 
             BatchLogger.info("WORKFLOW-COMPLETO", ">> [1/5] Formazione Avviso")
-            esegui_formazione_avviso(args, effective_sk_date)
+            esegui_formazione_avviso(args, effective_sk_date, config_params)
 
             BatchLogger.info("WORKFLOW-COMPLETO", ">> [2/5] Postalizzazione")
 
