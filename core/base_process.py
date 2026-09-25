@@ -218,6 +218,27 @@ class BaseProcessModel(ABC):
                 BatchLogger.error("TRANSACTION", "ROLLBACK eseguito su DB2 a seguito di errore.", depth=0)
             raise e
 
+    def commit(self):
+        """Esegue il commit esplicito della transazione corrente in base al provider."""
+        if self.provider == "sqlserver":
+            self.connection.commit()
+            BatchLogger.info("TRANSACTION", "COMMIT parziale consolidato su SQL Server.", depth=1)
+        elif self.provider == "db2":
+            if not self.dry_run:
+                import ibm_db
+                ibm_db.commit(self.connection)
+                BatchLogger.info("TRANSACTION", "COMMIT parziale consolidato su DB2.", depth=1)
+
+    def rollback(self):
+        """Esegue il rollback della transazione corrente in base al provider."""
+        if self.provider == "sqlserver":
+            self.connection.rollback()
+            BatchLogger.error("TRANSACTION", "ROLLBACK parziale eseguito su SQL Server.", depth=1)
+        elif self.provider == "db2":
+            import ibm_db
+            ibm_db.rollback(self.connection)
+            BatchLogger.error("TRANSACTION", "ROLLBACK parziale eseguito su DB2.", depth=1)
+
     @abstractmethod
     def _execute_business_logic(self):
         pass

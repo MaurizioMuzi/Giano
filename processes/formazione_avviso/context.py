@@ -16,6 +16,7 @@ class FormazioneAvvisoContext:
     data_elaborazione: Optional[date] = None
     data_limite_formazione: Optional[date] = None
     sede_filter: Optional[str] = None
+    size_commit = 1000
 
     # Registri contabili da ADCFRT18
     dcon: Optional[date] = None
