@@ -1,7 +1,7 @@
-# processes/formazione_avviso/steps.py
+# processes/formazione_ruoli/steps.py
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
-from .context import FormazioneAvvisoContext
+from .context import FormazioneRuoliContext
 from core.batch_logger import BatchLogger
 from .step_tab14_cfis import AllineamentoAnagrafeStep as AllineamentoCfisStep
 from .step_tab14_for import AllineamentoAnagrafeStep as AllineamentoForStep
@@ -20,7 +20,7 @@ class ElaborazioneCurjoi2Step:
         self.step_for = AllineamentoForStep(engine)
         self.step_aggiorna_tabelle = AggiornaTabelleStep(engine)
 
-    def execute_record(self, ctx: FormazioneAvvisoContext, cges: str, anno_avv: int, prog_avv: int, depth: int = 3, is_last_credit: bool = False) -> None:
+    def execute_record(self, ctx: FormazioneRuoliContext, cges: str, anno_avv: int, prog_avv: int, depth: int = 3, is_last_credit: bool = False) -> None:
         t01_map = self.engine.get_table_map("ADCFRT01")
         t10_map = self.engine.get_table_map("ADCFRT10")
 
@@ -35,12 +35,13 @@ class ElaborazioneCurjoi2Step:
         ctx.ws_nespart = 0
         ctx.indic_errore = " "
 
+        # Estrazione di tutti i crediti della sede e di tutti i moduli di credito relativi alla sede,
+        # che siano già stati infasati
         query_curjoi2 = (
             self.engine.dataset("ADCFRT01")
             .join(t10_map, alias_self="A", alias_target="B")
             .on("gestione", "gestione")
             .on("codiceAtto", "codiceAtto")
-            .on("statoAttivita", "statoArticolo")
             .select(
                 "codEsattoria", "gestione", "codiceAtto", "statoAttivita", "codiceFiscale",
                 "flgEuro", "dataRifCon", "codAzienda", "dataFallimento", "sede", "zona",
@@ -54,14 +55,17 @@ class ElaborazioneCurjoi2Step:
                 "impArrotondamento", "progArticolo", "numIdDecre", "tasso", "impCapitale",
                 "dataFineCalc", "codFasAmm", "impAggio", "statoArticolo"
             )
-            .filter_by("gestione", "=", cges)
             .filter_by("sede", "=", ctx.current_sede)
             .filter_by("zona", "=", ctx.current_zona)
-            .filter_by("annoAvviso", "=", anno_avv)
-            .filter_by("progAvviso", "=", prog_avv)
-            .filter_by("statoAttivita", "=", "0I")
-            .order_by("gestione", "annoAvviso", "progAvviso", "numEspAvviso")
-            .order_by_joined("progArticolo")
+            .filter_by("codCentro", "=", ctx.current_cod_centro)
+            .filter_by("dataInf", "<=",
+                       getattr(ctx, "datainf", getattr(ctx, "ws_datainf", date.today())))  # NOT A.DINF > :CDCFRT01.DINF
+            .filter_by("dataInf", "<>", date.today())  # A.DINF ^= CURRENT DATE
+            .filter_by("dataInf", ">=", ctx.diniinf)  # A.DINF >= :CDCFRT18.DINIINF
+            .filter_by("dataInf", "<=", ctx.dfininf)
+            .filter_by("statoAttivita", "=", "0Q")
+            .order_by("codEsattoria", "flgEuro")
+            .order_by_joined("gestione", "codFasAmm", "numTotRate", "codTributoCnc", "codRata", "flgResiduo")
             .with_uncommitted_read()
             .compile_select()
         )
@@ -69,6 +73,48 @@ class ElaborazioneCurjoi2Step:
         record_art_totali = 0
         first_record = True
         avviso_interrotto_per_errore = False
+
+        res = self.engine.fetch(query_curjoi2, depth=depth)
+        if not res:
+            ctx.indic_non_trov = "X"
+            BatchLogger.info("CICLO-CURJOI-2", "Assenza di avvisi da elaborare)",
+                             depth=depth)
+            return 0
+        else:
+            # Estrazione del numero massimo del ruolo registrato per procedere alla conseguente
+            # iscrizione del ruolo stesso in tabella.
+            # In mancanza di numero ruolo presente in tabella viene assegnato in automatico il primo
+
+            ws_annoruo_dec = str(ctx.dcon.year) if hasattr(ctx.dcon, "year") else str(ctx.dcon or "")[:4]
+            t_ftr02_map = self.engine.get_table_map("ADCFRT02")
+
+            query_max_t02 = (
+                self.engine.dataset("ADCFRT02")
+                .select(
+                    "MAX:numRuolo"
+                )
+                .filter_by("codEsattoria", "=", ctx.current_sede)
+                .filter_by("annoRif", "=", ws_annoruo_dec)
+                .with_uncommitted_read()
+                .limit(1)
+                .compile_select()
+            )
+
+            rows = self.engine.fetch(query_max_t02, depth=1)
+            max_nruo = rows.get("numRuolo")
+
+            if max_nruo is None:
+                ctx.ws_ctr_nruo = 1
+            else:
+                ctx.ws_ctr_nruo = max_nruo + 1
+
+        # Ciclo di elaborazione con gestione di rottura chiave
+        # Chiave:
+        #   1) codEsattoria --> CESA
+        #   2) flgEuro      --> FEUR
+        #   3) gestione     --> CGES
+        #   4) codFasAmm    --> CFASAMM
+        #   5) numTotRate   --> NTOTRAT
 
         for chunk in self.engine.cursor_stream(query_curjoi2, buffer_size=500, depth=depth):
             for raw_row in chunk:
@@ -82,15 +128,17 @@ class ElaborazioneCurjoi2Step:
                     ctx.sw_keyavv = 0
                 else:
                     stessa_chiave = (
-                        ctx.ws_cges == row_t01.get("gestione") and
-                        ctx.ws_sede == row_t01.get("sede") and
-                        ctx.ws_zona == row_t01.get("zona") and
-                        ctx.ws_annoavv == row_t01.get("annoAvviso") and
-                        ctx.ws_progavv == row_t01.get("progAvviso")
+                        ctx.ws_cesa == row_t01.get("codEsattoria") and
+                        ctx.ws_feur == row_t01.get("flgEuro") and
+                        ctx.ws_cges == row_t10.get("gestione") and
+                        ctx.ws_cfasamm == row_t10.get("codFasAmm") and
+                        ctx.ws_ntotrat == row_t10.get("numTotRate")
                     )
 
+                    
+
                     if not stessa_chiave:
-                        self._on_rottura_avviso(ctx, row_t01=row_t01, depth=depth)
+                        self._on_rottura_avviso(ctx, row_t01=row_t01, row_t10=row_t10, depth=depth)
                         ctx.imp_comodi_key(row_t01, row_t10)
                         ctx.sw_keyavv = 0
 
@@ -162,7 +210,7 @@ class ElaborazioneCurjoi2Step:
         if record_art_totali == 0:
             BatchLogger.warn("ESITO-DETT-T10", "0 articoli correlati su ADCFRT10 per l'avviso", depth=depth, is_last=is_last_credit)
         else:
-            self._on_rottura_avviso(ctx, row_t01=None, depth=depth, is_last=is_last_credit)
+            self._on_rottura_avviso(ctx, row_t01=None, row_t10=None, depth=depth, is_last=is_last_credit)
 
     def _cntr_key_avv(self, ctx: FormazioneAvvisoContext, depth: int = 4) -> int:
         try:
@@ -404,16 +452,19 @@ class ElaborazioneCurjoi2Step:
             depth=depth
         )
 
-    def _on_rottura_avviso(self, ctx: FormazioneAvvisoContext, row_t01: dict = None, depth: int = 3, is_last: bool = False) -> None:
-        if row_t01:
-            BatchLogger.info("ROTTURA-CHIAVE", "**** ROTTURA CHIAVE **** [NUOVA CHIAVE AVVISO RILEVATA]", depth=depth)
-            BatchLogger.debug(
-                "ROTTURA-CHIAVE",
-                f"CGES={row_t01.get('gestione')} | CSED={row_t01.get('sede')} | "
-                f"CZON={row_t01.get('zona')} | ANNOAVV={row_t01.get('annoAvviso')} | "
-                f"PROGAVV={row_t01.get('progAvviso')}",
-                depth=depth + 1
-            )
+    def _on_rottura_avviso(self, ctx: FormazioneRuoliContext, row_t01: dict = None, row_t10: dict = None,
+                           depth: int = 3, is_last: bool = False) -> None:
+        t01 = row_t01 or {}
+        t10 = row_t10 or {}
+
+        BatchLogger.info("ROTTURA-CHIAVE", "**** ROTTURA CHIAVE **** [NUOVA CHIAVE AVVISO RILEVATA]", depth=depth)
+        BatchLogger.debug(
+            "ROTTURA-CHIAVE",
+            f"CESA={t01.get('codEsattoria')} | FEUR={t01.get('flgEuro')} | "
+            f"CGES={t10.get('gestione')} | CFASAMM={t10.get('codFasAmm')} | "
+            f"NTOTRAT={t10.get('numTotRate')}",
+            depth=depth + 1
+        )
 
         sw_errore = 1 if (ctx.indic_errore == "X" or ctx.ws_erravv.strip()) else 0
 
@@ -453,92 +504,42 @@ class ElaborazioneCurjoi2Step:
 
 
 class ElaborazioneCurjoi12AStep:
-    """Estrazione dei crediti distinti da ADCFRT01 (CURJOI-2A)."""
+    """Esecuzione diretta di ElaborazioneCurjoi2Step senza pre-query distinta (CURJOI-2A)."""
 
     def __init__(self, engine):
         self.engine = engine
         self.step_curjoi2 = ElaborazioneCurjoi2Step(engine)
 
-    def execute(self, ctx: FormazioneAvvisoContext, depth: int = 2) -> None:
-        t01_map = self.engine.get_table_map("ADCFRT01")
+    def execute(self, ctx: FormazioneRuoliContext, depth: int = 2) -> None:
+        cges = getattr(ctx, "current_cges", getattr(ctx, "ws_cges", ""))
+        anno_avv = getattr(ctx, "current_anno_avv", getattr(ctx, "ws_annoavv", 0))
+        prog_avv = getattr(ctx, "current_prog_avv", getattr(ctx, "ws_progavv", 0))
 
-        query = (
-            self.engine.dataset("ADCFRT01")
-            .distinct()
-            .select("gestione", "sede", "zona", "annoAvviso", "progAvviso")
-            .filter_by("statoAttivita", "=", "0I")
-            .filter_by("sede", "=", ctx.current_sede)
-            .filter_by("zona", "=", ctx.current_zona)
-            .filter_by("codCentro", "=", ctx.current_cod_centro)
-            .with_uncommitted_read()
-            .compile_select()
+        BatchLogger.info(
+            "CREDITO-ATTIVO",
+            f"Esecuzione diretta CURJOI-2: CGES={cges} | ANNO={anno_avv} | PROG={prog_avv}",
+            depth=depth,
+            is_last=False
         )
 
-        dettagli_record = []
-        for chunk in self.engine.cursor_stream(query, buffer_size=500, depth=depth):
-            for raw_row in chunk:
-                row = t01_map.normalize(raw_row)
-                dettagli_record.append({
-                    "cges": row.get("gestione"),
-                    "csed": row.get("sede"),
-                    "czon": row.get("zona"),
-                    "annoavv": row.get("annoAvviso"),
-                    "progavv": row.get("progAvviso")
-                })
-
-        tot_crediti = len(dettagli_record)
-        ctx.righe_elaborate_sede = tot_crediti
-
-        if tot_crediti == 0:
-            BatchLogger.info("SCAN-ATTI-T01", "Crediti infasati rilevati (stato 0I): 0", depth=depth)
-            return
-
-        BatchLogger.info("SCAN-ATTI-T01", f"Crediti infasati rilevati (stato 0I): {tot_crediti}", depth=depth)
-
-        tbl_sep = "+--------+------+------+------+---------+------------+"
-        header = f"| {'PROG':<6} | {'CGES':<4} | {'CSED':<4} | {'CZON':<4} | {'ANNOAVV':<7} | {'PROGAVV':<10} |"
-
-        BatchLogger.info("ELENCO-CREDITI", tbl_sep, depth=depth)
-        BatchLogger.info("ELENCO-CREDITI", header, depth=depth)
-        BatchLogger.info("ELENCO-CREDITI", tbl_sep, depth=depth)
-        for idx, r in enumerate(dettagli_record, start=1):
-            row_str = f"| {idx:<6} | {str(r['cges']):<4} | {str(r['csed']):<4} | {str(r['czon']):<4} | {str(r['annoavv']):<7} | {str(r['progavv']):<10} |"
-            BatchLogger.info("ELENCO-CREDITI", row_str, depth=depth)
-        BatchLogger.info("ELENCO-CREDITI", tbl_sep, depth=depth)
-
-        for idx, r in enumerate(dettagli_record, start=1):
-            is_last_credit = (idx == tot_crediti)
-
-            # Separatore iniziale del blocco credito (allineato ad albero)
-            BatchLogger.separator(depth=depth + 1)
-
-            BatchLogger.info(
-                "CREDITO-ATTIVO",
-                f"[{idx}/{tot_crediti}] CGES={r['cges']} | ANNO={r['annoavv']} | PROG={r['progavv']}",
-                depth=depth + 1,
-                is_last=False
-            )
-            self.step_curjoi2.execute_record(
-                ctx=ctx,
-                cges=r["cges"],
-                anno_avv=r["annoavv"],
-                prog_avv=r["progavv"],
-                depth=depth + 1,
-                is_last_credit=is_last_credit
-            )
-
-            # Separatore di chiusura del blocco credito (allineato ad albero)
-            BatchLogger.separator(depth=depth + 1)
+        self.step_curjoi2.execute_record(
+            ctx=ctx,
+            cges=cges,
+            anno_avv=anno_avv,
+            prog_avv=prog_avv,
+            depth=depth + 1,
+            is_last_credit=True
+        )
 
 
 class ElaborazioneCurjoi1Step:
-    """Scansione delle sedi di recapito (CURJOI-1 su ADCTET17)."""
+    """Estrazione di tutti i lavori con CDAS = 'FO' su tabella ADCTET17."""
 
     def __init__(self, engine):
         self.engine = engine
         self.step_curjoi_2a = ElaborazioneCurjoi12AStep(engine)
 
-    def execute(self, ctx: FormazioneAvvisoContext) -> None:
+    def execute(self, ctx: FormazioneRuoliContext) -> None:
         BatchLogger.info("SCAN-SEDI-T17", "Avvio scansione sedi operative (CURJOI-1 su ADCTET17)", depth=0)
         t17_map = self.engine.get_table_map("ADCTET17")
 
@@ -546,7 +547,8 @@ class ElaborazioneCurjoi1Step:
             self.engine.dataset("ADCTET17")
             .distinct()
             .select("sede", "zona", "codCentro", "codServizio")
-            .filter_by("codServizio", "=", "AV")
+            .filter_by("codServizio", "=", "FO")
+            .filter_by("timestamp", "=", datetime(1, 1, 1, 0, 0, 0))
             .filter_by("dataPre", "<=", date.today())
             .order_by("sede", "zona", "codCentro")
             .with_uncommitted_read()
@@ -569,7 +571,6 @@ class ElaborazioneCurjoi1Step:
             ctx.current_sede = row.get("sede")
             ctx.current_zona = row.get("zona")
             ctx.current_cod_centro = row.get("codCentro")
-            ctx.current_cod_servizio = row.get("codServizio")
             ctx.righe_elaborate_sede = 0
             ctx.indic_errore = " "
 
