@@ -16,9 +16,9 @@ class TreeFormatter(logging.Formatter):
         # Allineamento a 7 caratteri: gestisce perfettamente WARNING (7 crt) e allinea DEBUG, INFO, ERROR
         level_str = f"{record.levelname:<7}"
 
-        # Se è una linea separatrice pulita
+        # Se è una linea separatrice pulita: estende la riga tratteggiata mantenendo l'indentazione dell'albero
         if tag_str == "---":
-            return f"[{timestamp}] [{level_str}] {branch_str}------------------------------------------------------------"
+            return f"[{timestamp}] [{level_str}] {branch_str}------------------------------------------------------------------------"
 
         return f"[{timestamp}] [{level_str}] {branch_str}[{tag_str:<14}] {record.getMessage()}"
 

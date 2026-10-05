@@ -9,8 +9,12 @@ from datetime import datetime
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from database.manager import DefaultConnectionProvider
+# include moduli per formazione_avviso
 from processes.formazione_avviso.processor import FormazioneAvvisoEngineProcessor
 from processes.formazione_avviso.context import FormazioneAvvisoContext
+
+# include moduli per postalizzazione
+
 from config.loader import ConfigurationError
 from core.batch_logger import BatchLogger
 
@@ -162,6 +166,7 @@ def esegui_formazione_avviso(args, effective_sk_date, config_params):
     worker.run()
 
 
+
 def main():
     args = parse_args()
     os.environ["EXTERNAL_DB_CONFIG_PATH"] = args.config_path
@@ -204,19 +209,20 @@ def main():
     exit_code = 0
     try:
         if effective_tipo_elab == "formazione_avviso":
+            BatchLogger.info("Blocco FORMAZIONE-AVVISO", "Avvio fase di Formazione Avviso...")
             esegui_formazione_avviso(args, effective_sk_date, config_params)
 
         elif effective_tipo_elab == "postalizzazione":
-            BatchLogger.info("STEP-POSTALIZZAZIONE", "Avvio fase di Postalizzazione...")
+            BatchLogger.info("Blocco POSTALIZZAZIONE", "Avvio fase di Postalizzazione...")
 
         elif effective_tipo_elab == "formazione_ruoli":
-            BatchLogger.info("STEP-FORMAZIONE-RUOLI", "Avvio fase di Formazione Ruoli...")
+            BatchLogger.info("Blocco FORMAZIONE-RUOLI", "Avvio fase di Formazione Ruoli...")
 
         elif effective_tipo_elab == "firma_ruoli":
-            BatchLogger.info("STEP-FIRMA-RUOLI", "Avvio fase di Firma Ruoli...")
+            BatchLogger.info("Blocco FIRMA-RUOLI", "Avvio fase di Firma Ruoli...")
 
         elif effective_tipo_elab == "invio_ruoli_AdER":
-            BatchLogger.info("STEP-INVIO-ADER", "Avvio fase di Invio Ruoli ad Agenzia delle Entrate-Riscossione...")
+            BatchLogger.info("Blocco INVIO-ADER", "Avvio fase di Invio Ruoli ad Agenzia delle Entrate-Riscossione...")
 
         elif effective_tipo_elab == "gestione_avvisi":
             BatchLogger.info("WORKFLOW-COMPLETO", "Esecuzione sequenziale di tutte le fasi batch...")

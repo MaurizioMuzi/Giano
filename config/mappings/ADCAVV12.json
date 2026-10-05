@@ -1,0 +1,343 @@
+{
+  "table": {
+    "db2": "ADCAVV12",
+    "sqlserver": "ADCAVV12"
+  },
+  "columns": {
+    "codiceAvviso": {
+      "db2": "CODAVV",
+      "sqlserver": "CodiceAvviso",
+      "logical_type": "string",
+      "padding": true
+    },
+    "prgCens": {
+      "db2": "PRGCENS",
+      "sqlserver": "PrgCens",
+      "logical_type": "decimal"
+    },
+    "numElab": {
+      "db2": "NUMELAB",
+      "sqlserver": "NumElab",
+      "logical_type": "decimal"
+    },
+    "dcon": {
+      "db2": "DCON",
+      "sqlserver": "Dcon",
+      "logical_type": "date"
+    },
+    "identificativoAvviso": {
+      "db2": "IDAVV",
+      "sqlserver": "IdentificativoAvviso",
+      "logical_type": "string",
+      "padding": true
+    },
+    "flgRateizzazione": {
+      "db2": "FRATEIZZ",
+      "sqlserver": "FlgRateizzazione",
+      "logical_type": "string",
+      "padding": true
+    },
+    "sedeMittente": {
+      "db2": "CODSED",
+      "sqlserver": "SedeMittente",
+      "logical_type": "string",
+      "padding": true
+    },
+    "gestione": {
+      "db2": "CGES",
+      "sqlserver": "Gestione",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codConcessione": {
+      "db2": "CESA",
+      "sqlserver": "codConcessione",
+      "logical_type": "decimal"
+    },
+    "codMatricola": {
+      "db2": "CODMAT",
+      "sqlserver": "CodMatricola",
+      "logical_type": "string",
+      "padding": true
+    },
+    "dataLettera": {
+      "db2": "DLETT",
+      "sqlserver": "DataLettera",
+      "logical_type": "date"
+    },
+    "dataCreLettera": {
+      "db2": "DCRELET",
+      "sqlserver": "DataCreLettera",
+      "logical_type": "date"
+    },
+    "statoLettera": {
+      "db2": "CSTALET",
+      "sqlserver": "StatoLettera",
+      "logical_type": "string",
+      "padding": true
+    },
+    "nomeDirSede": {
+      "db2": "SNOM_DIR",
+      "sqlserver": "NomeDirSede",
+      "logical_type": "string",
+      "padding": true
+    },
+    "cognomeDirSede": {
+      "db2": "SCOGN_DIR",
+      "sqlserver": "CognomeDirSede",
+      "logical_type": "string",
+      "padding": true
+    },
+    "sedeInps": {
+      "db2": "SEDE",
+      "sqlserver": "SedeInps",
+      "logical_type": "string",
+      "padding": true
+    },
+    "provSedeInps": {
+      "db2": "SPROV_SEDE",
+      "sqlserver": "ProvSedeInps",
+      "logical_type": "string",
+      "padding": true
+    },
+    "indirizzoSedeInps": {
+      "db2": "SIND_SEDE",
+      "sqlserver": "IndirizzoSedeInps",
+      "logical_type": "string",
+      "padding": true
+    },
+    "capSedeInps": {
+      "db2": "SCAP_SEDE",
+      "sqlserver": "CapSedeInps",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codFiscaleDestLettera": {
+      "db2": "CFIS_DEST",
+      "sqlserver": "CodFiscaleDestLettera",
+      "logical_type": "string",
+      "padding": true
+    },
+    "tipoDest": {
+      "db2": "CTIPO_DEST",
+      "sqlserver": "TipoDest",
+      "logical_type": "string",
+      "padding": true
+    },
+    "cognomeDest": {
+      "db2": "SCOGN_DEST",
+      "sqlserver": "CognomeDest",
+      "logical_type": "string",
+      "padding": true
+    },
+    "nomeDest": {
+      "db2": "SNOM_DEST",
+      "sqlserver": "NomeDest",
+      "logical_type": "string",
+      "padding": true
+    },
+    "sessoDest": {
+      "db2": "CSES_DEST",
+      "sqlserver": "SessoDest",
+      "logical_type": "string",
+      "padding": true
+    },
+    "denomAziendaDest": {
+      "db2": "SDENAZ_DEST",
+      "sqlserver": "DenomAziendaDest",
+      "logical_type": "string",
+      "padding": true
+    },
+    "indirizzoDest": {
+      "db2": "SIND_DEST",
+      "sqlserver": "IndirizzoDest",
+      "logical_type": "string",
+      "padding": true
+    },
+    "capDest": {
+      "db2": "SCAP_DEST",
+      "sqlserver": "CapDest",
+      "logical_type": "string",
+      "padding": true
+    },
+    "provinciaDest": {
+      "db2": "SPROV_DEST",
+      "sqlserver": "ProvinciaDest",
+      "logical_type": "string",
+      "padding": true
+    },
+    "comuneDest": {
+      "db2": "SCOM_DEST",
+      "sqlserver": "ComuneDest",
+      "logical_type": "string",
+      "padding": true
+    },
+    "impAvviso": {
+      "db2": "ITOTDEB",
+      "sqlserver": "ImpAvviso",
+      "logical_type": "decimal"
+    },
+    "impTributo": {
+      "db2": "ITOTTRB",
+      "sqlserver": "ImpTributo",
+      "logical_type": "decimal"
+    },
+    "impRiscossione": {
+      "db2": "ITOTAGG",
+      "sqlserver": "ImpRiscossione",
+      "logical_type": "decimal"
+    },
+    "periodo": {
+      "db2": "PERIODO",
+      "sqlserver": "Periodo",
+      "logical_type": "string",
+      "padding": true
+    },
+    "periodoBi": {
+      "db2": "PERIOBI",
+      "sqlserver": "PeriodoBi",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codLett": {
+      "db2": "CODLETT",
+      "sqlserver": "CodLett",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codErr": {
+      "db2": "CODERR",
+      "sqlserver": "CodErr",
+      "logical_type": "decimal"
+    },
+    "codLot": {
+      "db2": "CODLOT",
+      "sqlserver": "CodLot",
+      "logical_type": "decimal"
+    },
+    "statoInvioEQ": {
+      "db2": "CSTAEQS",
+      "sqlserver": "StatoInvioEQ",
+      "logical_type": "string",
+      "padding": true
+    },
+    "timestampVarLet": {
+      "db2": "TMSVAR_CSTALET",
+      "sqlserver": "TimestampVarLet",
+      "logical_type": "datetime"
+    },
+    "codBoll": {
+      "db2": "CBOLL",
+      "sqlserver": "CodBoll",
+      "logical_type": "string",
+      "padding": true
+    },
+    "pec": {
+      "db2": "SINDPEC",
+      "sqlserver": "Pec",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codRav": {
+      "db2": "CIDERAV",
+      "sqlserver": "CodRav",
+      "logical_type": "decimal"
+    },
+    "timestampVarEQS": {
+      "db2": "TMSVAR_CSTAEQS",
+      "sqlserver": "timestampVarEQS",
+      "logical_type": "datetime"
+    },
+    "flgInd": {
+      "db2": "FINDGS",
+      "sqlserver": "FlgInd",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codComuneDest": {
+      "db2": "CCOM_DEST",
+      "sqlserver": "CodComuneDest",
+      "logical_type": "string",
+      "padding": true
+    },
+    "numRiposta": {
+      "db2": "NUMRIP",
+      "sqlserver": "NumRiposta",
+      "logical_type": "decimal"
+    },
+    "cdipInd": {
+      "db2": "CDIP_IND",
+      "sqlserver": "CdipInd",
+      "logical_type": "string",
+      "padding": true
+    },
+    "dataInd": {
+      "db2": "DATA_IND",
+      "sqlserver": "DataInd",
+      "logical_type": "date"
+    },
+    "sedeInd": {
+      "db2": "SEDE_IND",
+      "sqlserver": "SedeInd",
+      "logical_type": "string",
+      "padding": true
+    },
+    "indDest": {
+      "db2": "SIND_GEST",
+      "sqlserver": "IndDest",
+      "logical_type": "string",
+      "padding": true
+    },
+    "numCivDest": {
+      "db2": "NCIV_GEST",
+      "sqlserver": "NumCivDest",
+      "logical_type": "string",
+      "padding": true
+    },
+    "letCivDest": {
+      "db2": "CCIV_GEST",
+      "sqlserver": "LetCivDest",
+      "logical_type": "string",
+      "padding": true
+    },
+    "numKmDest": {
+      "db2": "NKIM_GEST",
+      "sqlserver": "NumKmDest",
+      "logical_type": "decimal"
+    },
+    "dataNotificaDeb": {
+      "db2": "DNOTDEB",
+      "sqlserver": "DataNotificaDeb",
+      "logical_type": "date"
+    },
+    "dataDiffida": {
+      "db2": "DDIFF",
+      "sqlserver": "DataDiffida",
+      "logical_type": "date"
+    },
+    "nomeProc": {
+      "db2": "SNOM_PROC",
+      "sqlserver": "NomeProc",
+      "logical_type": "string",
+      "padding": true
+    },
+    "cognomeProc": {
+      "db2": "SCOGN_PROC",
+      "sqlserver": "CognomeProc",
+      "logical_type": "string",
+      "padding": true
+    },
+    "comuneSede": {
+      "db2": "SCOM_SEDE",
+      "sqlserver": "ComuneSede",
+      "logical_type": "string",
+      "padding": true
+    },
+    "piu": {
+      "db2": "PIU",
+      "sqlserver": "Piu",
+      "logical_type": "string",
+      "padding": true
+    }
+  }
+}

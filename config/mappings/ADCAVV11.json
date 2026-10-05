@@ -1,0 +1,69 @@
+{
+  "table": {
+    "db2": "DTPT03.ADCAVV11",
+    "sqlserver": "ADCAVV11"
+  },
+  "columns": {
+    "prgcens": {
+      "db2": "PRGCENS",
+      "sqlserver": "ProgressCens",
+      "logical_type": "int"
+    },
+    "numelab": {
+      "db2": "NUMELAB",
+      "sqlserver": "NumeroElab",
+      "logical_type": "int"
+    },
+    "dcon": {
+      "db2": "DCON",
+      "sqlserver": "DataConsolidamento",
+      "logical_type": "date"
+    },
+    "dinifor": {
+      "db2": "DINIFOR",
+      "sqlserver": "DataInizioFormazione",
+      "logical_type": "date"
+    },
+    "dfinfor": {
+      "db2": "DFINFOR",
+      "sqlserver": "DataFineFormazione",
+      "logical_type": "date"
+    },
+    "cstacom" : {
+      "db2": "CSTACOM",
+      "sqlserver":"StatoElabComune",
+      "logical_type": "string",
+      "padding": true
+    },
+    "cstaavv" : {
+      "db2": "CSTAAVV",
+      "sqlserver":"StatoAvvisi",
+      "logical_type": "string",
+      "padding": true
+    },
+    "tms_finform" : {
+      "db2": "TMS_FINFORM",
+      "sqlserver":"TimestampFineFormazione",
+      "logical_type": "datetime",
+      "padding": true
+    },
+    "tms_finlot" : {
+      "db2": "TMS_FINLOT",
+      "sqlserver":"TimestampFineLavorazione",
+      "logical_type": "datetime",
+      "padding": true
+    },
+    "tms_inveq" : {
+      "db2": "TMS_INVEQ",
+      "sqlserver":"TimestampInvio",
+      "logical_type": "datetime",
+      "padding": true
+    },
+      "flg_pdf" : {
+      "db2": "FLG_PDF",
+      "sqlserver":"FLG_PDF",
+      "logical_type": "string",
+      "padding": true
+    }
+  }
+}

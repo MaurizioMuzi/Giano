@@ -21,10 +21,10 @@ class OperazioniFinaliStep:
             .filter_by("dcon", "=", ctx.dcon)
             .filter_by("diniinf", "=", ctx.diniinf)
             .compile_update({
-                "fstfor": "2",
+                "fstfor": "3",
                 "tmsfin": datetime.now()
             })
         )
         righe_modificate = self.engine.execute_mutation(upd, depth=depth)
-        BatchLogger.info("UPD-STATO-T18", f"UPDATE ADCFRT18 SET FSTFOR='2' -> Record impattati: {righe_modificate}", depth=depth, is_last=True)
+        BatchLogger.info("UPD-STATO-T18", f"Aggiornamento per fase successiva di Postalizzazione -> Record impattati: {righe_modificate}", depth=depth, is_last=True)
         BatchLogger.separator(depth=0)
