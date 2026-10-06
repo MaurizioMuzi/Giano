@@ -6,6 +6,9 @@ import argparse
 import logging
 from datetime import datetime
 
+from processes.preparazione_postalizzazione.context import PreparazionePostalizzazioneContext
+from processes.preparazione_postalizzazione import PreparazionePostalizzazioneEngineProcessor
+
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from database.manager import DefaultConnectionProvider
@@ -165,6 +168,21 @@ def esegui_formazione_avviso(args, effective_sk_date, config_params):
     worker.size_commit = context.size_commit
     worker.run()
 
+def esegui_preparazione_postalizzazione(args, effective_sk_date, config_params):
+    """Inizializza ed esegue il processore di preparazione postalizzazione passando la soglia di commit."""
+    context = PreparazionePostalizzazioneContext(sk_data_elab=effective_sk_date)
+    context.size_commit = config_params.get("size_commit", 1000)  # Salvato nel contesto
+
+    BatchLogger.info("ORCHESTRATORE", f"SK-DATA-ELAB operativo: {context.sk_data_elab}")
+    BatchLogger.info("ORCHESTRATORE", f"Soglia COMMIT parziale configurata: {context.size_commit} record")
+
+    worker = PreparazionePostalizzazioneEngineProcessor(
+        context=context,
+        dry_run=args.dry_run
+    )
+    # Passiamo la soglia anche all'engine/processore se necessario
+    worker.size_commit = context.size_commit
+    worker.run()
 
 
 def main():
@@ -214,6 +232,7 @@ def main():
 
         elif effective_tipo_elab == "postalizzazione":
             BatchLogger.info("Blocco POSTALIZZAZIONE", "Avvio fase di Postalizzazione...")
+            esegui_preparazione_postalizzazione(args, effective_sk_date, config_params)
 
         elif effective_tipo_elab == "formazione_ruoli":
             BatchLogger.info("Blocco FORMAZIONE-RUOLI", "Avvio fase di Formazione Ruoli...")
@@ -231,6 +250,7 @@ def main():
             esegui_formazione_avviso(args, effective_sk_date, config_params)
 
             BatchLogger.info("WORKFLOW-COMPLETO", ">> [2/5] Postalizzazione")
+            esegui_preparazione_postalizzazione(args, effective_sk_date, config_params)
 
             BatchLogger.info("WORKFLOW-COMPLETO", ">> [3/5] Formazione Ruoli")
 

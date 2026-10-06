@@ -1,0 +1,86 @@
+{
+  "table": {
+    "db2": "DTPT03.VSEDI_ADDEBITI",
+    "sqlserver": "VSEDI_ADDEBITI"
+  },
+  "columns": {
+    "sszz": {
+      "db2": "SSZZ",
+      "sqlserver": "SedeZona",
+      "logical_type": "string",
+      "padding": true
+    },
+    "nomedir": {
+      "db2": "NOMEDIR",
+      "sqlserver": "NomeDirettore",
+      "logical_type": "string",
+      "padding": true
+    },
+    "cogndir": {
+      "db2": "COGNDIR",
+      "sqlserver": "CognomeDirettore",
+      "logical_type": "string",
+      "padding": true
+    },
+    "sede": {
+      "db2": "SEDE",
+      "sqlserver": "Sede",
+      "logical_type": "string",
+      "padding": true
+    },
+    "pr": {
+      "db2": "PR",
+      "sqlserver": "Provincia",
+      "logical_type": "string",
+      "padding": true
+    },
+    "indir_sedi" : {
+      "db2": "INDIR_SEDI",
+      "sqlserver":"IndirizzoSedi",
+      "logical_type": "string",
+      "padding": true
+    },
+    "cap_sedi" : {
+      "db2": "CAP_SEDI",
+      "sqlserver":"CapSedi",
+      "logical_type": "string",
+      "padding": true
+    },
+    "comune" : {
+      "db2": "COMUNE",
+      "sqlserver":"Comune",
+      "logical_type": "string",
+      "padding": true
+    },
+    "nomedir_prov" : {
+      "db2": "NOMEDIR_PROV",
+      "sqlserver":"NomeDirettoreProvincia",
+      "logical_type": "string",
+      "padding": true
+    },
+    "cogndir_prov" : {
+      "db2": "COGNDIR_PROV",
+      "sqlserver":"CognomeDirettoreProvincia",
+      "logical_type": "string",
+      "padding": true
+    },
+    "nome:resproc" : {
+      "db2": "NOME_RESPPROC",
+      "sqlserver":"NomeRespProcedura",
+      "logical_type": "string",
+      "padding": true
+    },
+    "cogn_respproc" : {
+      "db2": "COGN_RESPPROC",
+      "sqlserver":"CognomeRespProcedura",
+      "logical_type": "string",
+      "padding": true
+    },
+     "flag_e" : {
+      "db2": "FLAG_E",
+      "sqlserver":"Flag_E",
+      "logical_type": "string",
+      "padding": true
+    }
+  }
+}
