@@ -1,0 +1,81 @@
+{
+  "table": {
+    "db2": "DTPT03.ADCFRT09",
+    "sqlserver": "ADCFRT09"
+  },
+  "columns": {
+    "codEsattoria": {
+      "db2": "CESA",
+      "sqlserver": "CodEsattoria",
+      "logical_type": "decimal"
+    },
+    "annoRif": {
+      "db2": "ARIFRUO",
+      "sqlserver": "AnnoRif",
+      "logical_type": "decimal"
+    },
+    "numRuolo": {
+      "db2": "NRUO",
+      "sqlserver": "NumRuolo",
+      "logical_type": "decimal"
+    },
+    "codTributoCnc": {
+      "db2": "CTRBCNC",
+      "sqlserver": "CodTributoCnc",
+      "logical_type": "string",
+      "padding": true
+    },
+    "annoRifCont": {
+      "db2": "ARIFCON",
+      "sqlserver": "AnnoRifCont",
+      "logical_type": "decimal"
+    },
+    "numRate": {
+      "db2": "NRAT",
+      "sqlserver": "NumRate",
+      "logical_type": "decimal"
+    },
+    "codRata": {
+      "db2": "CRAT",
+      "sqlserver": "CodRata",
+      "logical_type": "string",
+      "padding": true
+    },
+    "flgResiduo": {
+      "db2": "FRES",
+      "sqlserver": "FlgResiduo",
+      "logical_type": "string",
+      "padding": true
+    },
+    "impTributo": {
+      "db2": "ITRB",
+      "sqlserver": "ImpTributo",
+      "logical_type": "decimal"
+    },
+    "numArticoli": {
+      "db2": "NART",
+      "sqlserver": "NumArticoli",
+      "logical_type": "decimal"
+    },
+    "impAggioAnt": {
+      "db2": "IAGGANT",
+      "sqlserver": "ImpAggioAnt",
+      "logical_type": "decimal"
+    },
+    "impAggioTot": {
+      "db2": "IAGGTOT",
+      "sqlserver": "ImpAggioTot",
+      "logical_type": "decimal"
+    },
+    "impArrotondamento": {
+      "db2": "IARR",
+      "sqlserver": "ImpArrotondamento",
+      "logical_type": "decimal"
+    },
+    "impCarico": {
+      "db2": "ICRC",
+      "sqlserver": "ImpCarico",
+      "logical_type": "decimal"
+    }
+  }
+}

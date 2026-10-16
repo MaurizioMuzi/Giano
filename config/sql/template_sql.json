@@ -1,0 +1,106 @@
+{
+  "dialects": {
+    "DB2": {
+      "select": {
+        "statement": "SELECT {distinct}{fields} FROM {table}",
+        "where": "WHERE {condition}",
+        "group_by": "GROUP BY {columns}",
+        "having": "HAVING {condition}",
+        "order_by": "ORDER BY {columns}",
+        "limit": "FETCH FIRST {limit} ROWS ONLY",
+        "distinct_keyword": "DISTINCT ",
+        "isolation_ur": "WITH UR"
+      },
+      "join": {
+        "statement": "SELECT {distinct}{fields} FROM {table_a} {alias_a} INNER JOIN {table_b} {alias_b} ON {on_clause}",
+        "where": "WHERE {condition}",
+        "group_by": "GROUP BY {columns}",
+        "having": "HAVING {condition}",
+        "order_by": "ORDER BY {columns}",
+        "limit": "FETCH FIRST {limit} ROWS ONLY",
+        "distinct_keyword": "DISTINCT ",
+        "isolation_ur": "WITH UR FOR FETCH ONLY"
+      },
+      "subquery_count": {
+        "statement": "SELECT COUNT(*) FROM ({inner_sql}) {alias}{isolation}"
+      },
+      "update": {
+        "statement": "UPDATE {table} SET {set_clause}",
+        "where": "WHERE {condition}"
+      },
+      "update_joined": {
+        "statement": "UPDATE {target_table} SET {target_field} = (SELECT {source_field} FROM {source_table} WHERE {join_condition}) WHERE EXISTS (SELECT 1 FROM {source_table} WHERE {join_condition}{filter_condition})"
+      },
+      "delete": {
+        "statement": "DELETE FROM {table}",
+        "where": "WHERE {condition}"
+      },
+      "delete_joined": {
+        "statement": "DELETE FROM {target_table} WHERE EXISTS (SELECT 1 FROM {source_table} WHERE {join_condition}{filter_condition})"
+      }
+    },
+    "SQLSERVER": {
+      "select": {
+        "statement": "SELECT{distinct}{limit} {fields} FROM {table}{lock_hint}",
+        "where": "WHERE {condition}",
+        "group_by": "GROUP BY {columns}",
+        "having": "HAVING {condition}",
+        "order_by": "ORDER BY {columns}",
+        "limit": " TOP {limit}",
+        "distinct_keyword": " DISTINCT",
+        "lock_hint": " WITH (NOLOCK)"
+      },
+      "join": {
+        "statement": "SELECT{distinct}{limit} {fields} FROM {table_a} {alias_a}{lock_a} INNER JOIN {table_b} {alias_b}{lock_b} ON {on_clause}",
+        "where": "WHERE {condition}",
+        "group_by": "GROUP BY {columns}",
+        "having": "HAVING {condition}",
+        "order_by": "ORDER BY {columns}",
+        "limit": " TOP {limit}",
+        "distinct_keyword": " DISTINCT",
+        "lock_hint": " WITH (NOLOCK)"
+      },
+      "subquery_count": {
+        "statement": "SELECT COUNT(*) FROM ({inner_sql}) AS {alias}"
+      },
+      "update": {
+        "statement": "UPDATE {table} SET {set_clause}",
+        "where": "WHERE {condition}"
+      },
+      "update_joined": {
+        "statement": "UPDATE t SET t.{target_field} = s.{source_field} FROM {target_table} t INNER JOIN {source_table} s ON {join_condition}{filter_condition}"
+      },
+      "delete": {
+        "statement": "DELETE FROM {table}",
+        "where": "WHERE {condition}"
+      },
+      "delete_joined": {
+        "statement": "DELETE t FROM {target_table} t INNER JOIN {source_table} s ON {join_condition}{filter_condition}"
+      }
+    }
+  },
+  "common_fragments": {
+    "exists": {
+      "statement": "EXISTS (SELECT 1 FROM {table} {alias}{where_clause})",
+      "not_prefix": "NOT {expression}"
+    },
+    "insert": {
+      "statement": "INSERT INTO {table} ({columns}) VALUES ({placeholders})"
+    },
+    "predicates": {
+      "comparison": "{column} {operator} ?",
+      "in_sequence": "{column} {operator} ({placeholders})",
+      "equality_join": "{alias_a}.{col_a} = {alias_b}.{col_b}",
+      "correlation": "{alias_sub}.{col_sub} {operator} {parent_prefix}{col_parent}",
+      "assignment": "{column} = ?"
+    },
+    "expressions": {
+      "function_alias": "{function}({column}) AS {alias}",
+      "order_item": "{column} {direction}",
+      "column_alias": "{expression} AS {alias}",
+      "case_statement": "CASE {branches} {else_clause} END",
+      "case_when": "WHEN {condition} THEN {result}",
+      "case_else": "ELSE {result}"
+    }
+  }
+}

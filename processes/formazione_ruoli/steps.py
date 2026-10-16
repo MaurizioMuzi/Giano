@@ -3,9 +3,8 @@ from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from .context import FormazioneRuoliContext
 from core.batch_logger import BatchLogger
-from .step_tab14_cfis import AllineamentoAnagrafeStep as AllineamentoCfisStep
-from .step_tab14_for import AllineamentoAnagrafeStep as AllineamentoForStep
-from .step_aggiorna_tabelle import AggiornaTabelleStep
+from .step_key_uguale import CicloDettaglioKeyUStep as DettaglioKeyStep
+#from .step_aggiorna_tabelle import AggiornaTabelleStep
 
 
 class ElaborazioneCurjoi2Step:
@@ -16,9 +15,8 @@ class ElaborazioneCurjoi2Step:
 
     def __init__(self, engine):
         self.engine = engine
-        self.step_cfis = AllineamentoCfisStep(engine)
-        self.step_for = AllineamentoForStep(engine)
-        self.step_aggiorna_tabelle = AggiornaTabelleStep(engine)
+        self.step_key = DettaglioKeyStep(engine)
+#        self.step_aggiorna_tabelle = AggiornaTabelleStep(engine)
 
     def execute_record(self, ctx: FormazioneRuoliContext, cges: str, anno_avv: int, prog_avv: int, depth: int = 3, is_last_credit: bool = False) -> None:
         t01_map = self.engine.get_table_map("ADCFRT01")
@@ -84,7 +82,6 @@ class ElaborazioneCurjoi2Step:
             # Estrazione del numero massimo del ruolo registrato per procedere alla conseguente
             # iscrizione del ruolo stesso in tabella.
             # In mancanza di numero ruolo presente in tabella viene assegnato in automatico il primo
-
             ws_annoruo_dec = str(ctx.dcon.year) if hasattr(ctx.dcon, "year") else str(ctx.dcon or "")[:4]
             t_ftr02_map = self.engine.get_table_map("ADCFRT02")
 
@@ -135,12 +132,22 @@ class ElaborazioneCurjoi2Step:
                         ctx.ws_ntotrat == row_t10.get("numTotRate")
                     )
 
-                    
-
                     if not stessa_chiave:
                         self._on_rottura_avviso(ctx, row_t01=row_t01, row_t10=row_t10, depth=depth)
                         ctx.imp_comodi_key(row_t01, row_t10)
                         ctx.sw_keyavv = 0
+
+                # =========================================================================
+                # INVOCAZIONE STEP CHIAVE UGUALE (ELABORAZIONE RECORD / DETTAGLIO)
+                # =========================================================================
+                # Esegue VERIFICA-AVD-POST e, se conforme, CICLO-PRINCIPALE e CNTR-2-CHIAVE
+                self.step_key.execute_controllo_flusso(
+                    ctx=ctx,
+                    row_t01=row_t01,
+                    row_t10=row_t10,
+                    depth=depth + 1
+                )
+
 
                 # CONTROLLI DI CONGRUITA' ONE-OFF SULL'AVVISO (depth=depth+1 -> 4)
                 if ctx.sw_keyavv == 0:
