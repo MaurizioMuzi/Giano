@@ -20,6 +20,7 @@ class GestioneRipartenzeStep:
     def execute(self, ctx: FormazioneRuoliContext) -> None:
         BatchLogger.info("CHK-RIPARTENZE", "GESTIONE-RIPARTENZE", depth=0)
 
+        #TEST-PILOTA
         BatchLogger.info("TEST-PILOTA", "Controllo Stato su Tabella pilota (ADCAVV11)", depth=0)
         tv11_map = self.engine.get_table_map("ADCAVV11")
         current_system_date = date.today()
@@ -42,6 +43,7 @@ class GestioneRipartenzeStep:
                                                 "Postalizzazione non avvenuta.", depth=1, is_last=True)
             raise RuntimeError("[COBOL_EXCEPTION] FORMAZIONE RUOLI NON CONSENTITA: Nessun record valido. Postalizzazione non avvenuta.")
 
+        #UPD-STATO-COMUNE
         row = tv11_map.normalize(rows[0])
         ctx.dcon_vv11 = row.get("dcon")
         ctx.ws_cstacom = row.get("cstacom")

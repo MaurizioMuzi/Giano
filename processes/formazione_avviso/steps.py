@@ -6,6 +6,7 @@ from core.batch_logger import BatchLogger
 from .step_tab14_cfis import AllineamentoAnagrafeStep as AllineamentoCfisStep
 from .step_tab14_for import AllineamentoAnagrafeStep as AllineamentoForStep
 from .step_aggiorna_tabelle import AggiornaTabelleStep
+from .step_imp_errore import ImpostaErroreAvvisoStep
 
 
 class ElaborazioneCurjoi2Step:
@@ -19,6 +20,7 @@ class ElaborazioneCurjoi2Step:
         self.step_cfis = AllineamentoCfisStep(engine)
         self.step_for = AllineamentoForStep(engine)
         self.step_aggiorna_tabelle = AggiornaTabelleStep(engine)
+        self.step_imp_errore = ImpostaErroreAvvisoStep(engine)
 
     def execute_record(self, ctx: FormazioneAvvisoContext, cges: str, anno_avv: int, prog_avv: int, depth: int = 3, is_last_credit: bool = False) -> None:
         t01_map = self.engine.get_table_map("ADCFRT01")
@@ -152,7 +154,7 @@ class ElaborazioneCurjoi2Step:
                 if not ctx.ws_erravv.strip():
                     self._elabora_singolo_articolo(ctx, row_t01, row_t10)
                 else:
-                    self._imp_errore(ctx, row_t01, depth=depth + 1)
+                    self.step_imp_errore.execute(ctx, row_t01, depth=depth + 1)
                     avviso_interrotto_per_errore = True
                     break
 
@@ -395,14 +397,6 @@ class ElaborazioneCurjoi2Step:
             ctx.ws_erravv = "EXX534"
             BatchLogger.warn("VAL-CONGRUITA", f"Flag validità fiscale non conforme: '{fvalfis}' non compreso tra [{f0}, {f1}] (ERR: EXX534)", depth=depth)
             return
-
-    def _imp_errore(self, ctx: FormazioneAvvisoContext, row_t01: dict, depth: int = 4) -> None:
-        ctx.indic_errore = "X"
-        BatchLogger.error(
-            "SCARTO-AVVISO",
-            f"Avviso scartato [{ctx.ws_annoavv}/{ctx.ws_progavv}] CATT={row_t01.get('codiceAtto')} -> Errore bloccante: {ctx.ws_erravv}",
-            depth=depth
-        )
 
     def _on_rottura_avviso(self, ctx: FormazioneAvvisoContext, row_t01: dict = None, depth: int = 3, is_last: bool = False) -> None:
         if row_t01:

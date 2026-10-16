@@ -2,7 +2,16 @@
 import logging
 import os
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Dict, Any
+
+# Livelli numerici:
+# DEBUG (10) < INFO (20) < TRANSITION (22) < METRICS (25) < WARNING (30) < ERROR (40)
+# Essendo > INFO, compaiono SEMPRE se il livello attivo è INFO o DEBUG.
+LEVEL_TRANSITION = 22
+LEVEL_METRICS = 25
+
+logging.addLevelName(LEVEL_TRANSITION, "TRANSIT")
+logging.addLevelName(LEVEL_METRICS, "METRICS")
 
 
 class TreeFormatter(logging.Formatter):
@@ -13,10 +22,10 @@ class TreeFormatter(logging.Formatter):
         tag_str = getattr(record, "tag_str", "GENERAL")
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
 
-        # Allineamento a 7 caratteri: gestisce perfettamente WARNING (7 crt) e allinea DEBUG, INFO, ERROR
-        level_str = f"{record.levelname:<7}"
+        # Allineamento a 8 caratteri per includere 'TRANSIT', 'METRICS', 'WARNING', ecc.
+        level_str = f"{record.levelname:<8}"
 
-        # Se è una linea separatrice pulita: estende la riga tratteggiata mantenendo l'indentazione dell'albero
+        # Separatore visivo dell'albero
         if tag_str == "---":
             return f"[{timestamp}] [{level_str}] {branch_str}------------------------------------------------------------------------"
 
@@ -26,6 +35,14 @@ class TreeFormatter(logging.Formatter):
 class BatchLogger:
     """Gestore unificato con livelli indipendenti tra Console e File .txt."""
     _logger: Optional[logging.Logger] = None
+
+    # Esposizione pubblica dei livelli
+    DEBUG = logging.DEBUG
+    INFO = logging.INFO
+    TRANSITION = LEVEL_TRANSITION
+    METRICS = LEVEL_METRICS
+    WARNING = logging.WARNING
+    ERROR = logging.ERROR
 
     @classmethod
     def setup_logger(
@@ -39,6 +56,7 @@ class BatchLogger:
             return
 
         cls._logger = logging.getLogger("BatchProcessLogger")
+        # Il logger radice cattura dal livello più basso (DEBUG), lasciando ai singoli handler il filtraggio
         cls._logger.setLevel(logging.DEBUG)
         cls._logger.propagate = False
 
@@ -86,6 +104,16 @@ class BatchLogger:
         cls._emit(logging.INFO, tag, msg, depth, is_last)
 
     @classmethod
+    def transition(cls, tag: str, msg: str, depth: int = 0, is_last: bool = False) -> None:
+        """Livello TRANSIT (22): visibile se la soglia è DEBUG, INFO o TRANSITION."""
+        cls._emit(LEVEL_TRANSITION, tag, msg, depth, is_last)
+
+    @classmethod
+    def metrics(cls, tag: str, msg: str, depth: int = 0, is_last: bool = False) -> None:
+        """Livello METRICS (25): visibile se la soglia è DEBUG, INFO, TRANSITION o METRICS."""
+        cls._emit(LEVEL_METRICS, tag, msg, depth, is_last)
+
+    @classmethod
     def warn(cls, tag: str, msg: str, depth: int = 0, is_last: bool = False) -> None:
         cls._emit(logging.WARNING, tag, msg, depth, is_last)
 
@@ -93,13 +121,26 @@ class BatchLogger:
     def error(cls, tag: str, msg: str, depth: int = 0, is_last: bool = False) -> None:
         cls._emit(logging.ERROR, tag, msg, depth, is_last)
 
+    # --- Metodi Helper di comodo ---
+
+    @classmethod
+    def log_table_counters(cls, table: str, counts: Dict[str, Any], depth: int = 0, is_last: bool = False) -> None:
+        """Stampa i contatori aggregati per T01, T10, T14, T03 al livello METRICS."""
+        formatted = " | ".join(f"{k}: {v}" for k, v in counts.items())
+        cls.metrics(table, f"CONTATORI -> {formatted}", depth=depth, is_last=is_last)
+
+    @classmethod
+    def log_state_change(cls, table: str, from_state: str, to_state: str, count: int, depth: int = 0, is_last: bool = False) -> None:
+        """Traccia il numero di record che transitano di stato al livello TRANSIT."""
+        cls.transition(table, f"CAMBIO STATO [{from_state} -> {to_state}]: {count} record", depth=depth, is_last=is_last)
+
     @classmethod
     def banner(cls, title: str) -> None:
         if cls._logger is None:
             cls.setup_logger()
         sep = "=" * 115
         print(
-            f"\n{sep}\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] [INFO   ] [PROCESS-ORCH   ] {title}\n{sep}\n")
+            f"\n{sep}\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] [INFO    ] [PROCESS-ORCH   ] {title}\n{sep}\n")
 
     @classmethod
     def separator(cls, depth: int = 0) -> None:

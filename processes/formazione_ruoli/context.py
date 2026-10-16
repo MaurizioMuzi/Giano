@@ -47,6 +47,9 @@ class FormazioneRuoliContext:
     ws_ncar: int = 0
     ws_nchkcar: int = 0
     ws_prov: int = 0
+    ws_idavv: int = 0
+    ws_ver_ok: int = 0
+    ws_ver_er: int = 0
 
     # Dati correnti cursore CURJOI-1
     current_sede: Optional[str] = None
@@ -67,6 +70,7 @@ class FormazioneRuoliContext:
     # WS-CTR-NRUO e WS-CTR-RIGHE
     ws_ctr_nruo: int = 0
     ws_ctr_righe: int = 0
+    ws_nart: int = 0
 
     # WS-NOME-TAB (Diagnostica / SQL Error Logging)
     ws_nome_tab: str = ""
@@ -79,6 +83,27 @@ class FormazioneRuoliContext:
     })
 
     # WS-SOMME (Totalizzatori contabili specifici di PDCFORUO)
+    ws_t02_itrbcal: Decimal = field(default_factory=lambda: Decimal("0"))
+    ws_t02_itrb_t: Decimal = field(default_factory=lambda: Decimal("0"))
+    ws_t02_isan_t: Decimal = field(default_factory=lambda: Decimal("0"))
+    ws_t02_iint_t: Decimal = field(default_factory=lambda: Decimal("0"))
+    ws_t02_ialt_t: Decimal = field(default_factory=lambda: Decimal("0"))
+    ws_t02_iaggant: Decimal = field(default_factory=lambda: Decimal("0"))
+    ws_t02_iaggant_t: Decimal = field(default_factory=lambda: Decimal("0"))
+    ws_t02_iaggtot: Decimal = field(default_factory=lambda: Decimal("0"))
+    ws_t02_iaggtot_t: Decimal = field(default_factory=lambda: Decimal("0"))
+
+    ws_t10_itrb: Decimal = field(default_factory=lambda: Decimal("0"))
+    ws_t10_itrb_t: Decimal = field(default_factory=lambda: Decimal("0"))
+    ws_t10_iaggant: Decimal = field(default_factory=lambda: Decimal("0"))
+    ws_t10_iaggant_t: Decimal = field(default_factory=lambda: Decimal("0"))
+    ws_t10_iaggtot: Decimal = field(default_factory=lambda: Decimal("0"))
+    ws_t10_iaggtot_t: Decimal = field(default_factory=lambda: Decimal("0"))
+    ws_t10_iarr: Decimal = field(default_factory=lambda: Decimal("0"))
+    ws_t10_iarr_t: Decimal = field(default_factory=lambda: Decimal("0"))
+    ws_t02_iarr: Decimal = field(default_factory=lambda: Decimal("0"))
+    ws_t02_iarr_t: Decimal = field(default_factory=lambda: Decimal("0"))
+
     ws_somma_tributi: Decimal = field(default_factory=lambda: Decimal("0"))
     ws_somma_diritti: Decimal = field(default_factory=lambda: Decimal("0"))
     ws_somma_spese: Decimal = field(default_factory=lambda: Decimal("0"))
@@ -107,6 +132,7 @@ class FormazioneRuoliContext:
     ws_periobi: Optional[int] = None
     ws_frateiz: Optional[str] = None
 
+    # Forzature fiscali (FVALFIS)
     ws_forzatura0: Optional[str] = None
     ws_forzatura1: Optional[str] = None
 
@@ -118,6 +144,13 @@ class FormazioneRuoliContext:
     ws_ntotrat: Optional[int] = None
     ws_fres: Optional[str] = None
     ws_cfasamm: Optional[str] = None
+
+    ws_key_ctrbcnc: Optional[str] = None
+    ws_key_crat: Optional[str] = None
+    ws_key_ntotrat: Optional[int] = None
+    ws_key_fres: Optional[str] = None
+    ws_key_cfasamm: Optional[str] = None
+    ws_key_cesa: Optional[int] = None
 
     ws_key_catt: Optional[str] = None
     ws_key_cges: Optional[str] = None
@@ -157,6 +190,7 @@ class FormazioneRuoliContext:
         # Reset contatori numerici
         self.ws_ctr_nruo = 0
         self.ws_ctr_righe = 0
+        self.ws_nart = 0
         self.ws_nome_tab = ""
 
         # Reset WS-INDICI
@@ -167,6 +201,24 @@ class FormazioneRuoliContext:
         }
 
         # Reset WS-SOMME
+        self.ws_t02_itrbcal = Decimal("0")
+        self.ws_t02_itrb_t = Decimal("0")
+        self.ws_t02_isan_t = Decimal("0")
+        self.ws_t02_iint_t = Decimal("0")
+        self.ws_t02_ialt_t = Decimal("0")
+        self.ws_t02_iaggant = Decimal("0")
+        self.ws_t02_iaggant_tg = Decimal("0")
+        self.ws_t02_iaggtot = Decimal("0")
+        self.ws_t02_iaggtot_t = Decimal("0")
+        self.ws_t10_itrb = Decimal("0")
+        self.ws_t10_itrb_t = Decimal("0")
+        self.ws_t10_iaggant = Decimal("0")
+        self.ws_t10_iaggant_t = Decimal("0")
+        self.ws_t10_iaggtot = Decimal("0")
+        self.ws_t10_iaggtot_t = Decimal("0")
+        self.ws_t02_iarr = Decimal("0")
+        self.ws_t02_iarr_t = Decimal("0")
+
         self.ws_somma_tributi = Decimal("0")
         self.ws_somma_diritti = Decimal("0")
         self.ws_somma_spese = Decimal("0")
@@ -204,6 +256,13 @@ class FormazioneRuoliContext:
         self.ws_key_catt = None
         self.ws_key_cges = None
         self.ws_key_nprgart = None
+
+        self.ws_key_ctrbcnc = None
+        self.ws_key_crat = None
+        self.ws_key_ntotrat = None
+        self.ws_key_fres = None
+        self.ws_key_cfasamm = None
+        self.ws_key_cesa = None
 
         # Reset accumulatori avviso
         self.ws_itrbavv = Decimal("0")
@@ -281,6 +340,11 @@ class FormazioneRuoliContext:
         self.ws_key_nprgart = row_t10.get("progArticolo")
 
         # Reset accumulatori e indicatori per il nuovo avviso
+        self.ws_t02_itrbcal = Decimal("0")
+        self.ws_t02_iaggant = Decimal("0")
+        self.ws_t02_iaggant_t = Decimal("0")
+        self.ws_t02_iaggtot = Decimal("0")
+        self.ws_t02_iaggtot_t = Decimal("0")
         self.ws_itrbavv = Decimal("0")
         self.ws_iaggavv = Decimal("0")
         self.ws_nespavv = 0
