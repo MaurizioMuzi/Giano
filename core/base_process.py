@@ -1,6 +1,8 @@
 # core/base_process.py
 from abc import ABC, abstractmethod
 import sys
+from datetime import date, datetime
+from decimal import Decimal
 from database.manager import DefaultConnectionProvider
 from core.query_builder import EntityModel, CompiledQuery, DB2Dialect, SQLServerDialect
 from core.batch_logger import BatchLogger
@@ -18,6 +20,48 @@ class BaseProcessModel(ABC):
             self.dialect = SQLServerDialect()
         else:
             raise NotImplementedError(f"Driver {self.provider} non supportato.")
+
+    # =========================================================================
+    # FORMATTAZIONE SQL PER DEBUG (COPIA-INCOLLA SU EDITOR SQL)
+    # =========================================================================
+    def _format_sql_for_debug(self, sql: str, params: tuple) -> str:
+        """
+        Sostituisce i segnaposti '?' con i valori effettivi formattati per SQL,
+        rendendo la query direttamente eseguibile in qualsiasi editor/client.
+        """
+        if not params:
+            return sql
+
+        formatted_vals = []
+        for p in params:
+            if p is None:
+                formatted_vals.append("NULL")
+            elif isinstance(p, (int, float, Decimal)):
+                formatted_vals.append(str(p))
+            elif isinstance(p, datetime):
+                if self.provider == "db2":
+                    formatted_vals.append(f"'{p.strftime('%Y-%m-%d-%H.%M.%S.%f')}'")
+                else:
+                    formatted_vals.append(f"'{p.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}'")
+            elif isinstance(p, date):
+                formatted_vals.append(f"'{p.strftime('%Y-%m-%d')}'")
+            elif isinstance(p, bool):
+                formatted_vals.append("1" if p else "0")
+            else:
+                val_escaped = str(p).replace("'", "''")
+                formatted_vals.append(f"'{val_escaped}'")
+
+        query_parts = sql.split("?")
+        if len(query_parts) - 1 != len(formatted_vals):
+            return f"-- [PARAM MISMATCH] params={params}\n{sql}"
+
+        reconstructed = []
+        for i, part in enumerate(query_parts[:-1]):
+            reconstructed.append(part)
+            reconstructed.append(formatted_vals[i])
+        reconstructed.append(query_parts[-1])
+
+        return "".join(reconstructed)
 
     def repository(self, logical_table_key: str) -> "GenericRepository":
         from core.generic_repository import GenericRepository
@@ -39,8 +83,8 @@ class BaseProcessModel(ABC):
         if not isinstance(compiled_query, CompiledQuery):
             raise TypeError("Richiesto oggetto CompiledQuery.")
 
-        BatchLogger.debug("DB-SELECT", f"SQL: {compiled_query.sql}", depth=depth)
-        BatchLogger.debug("PARAMS", str(compiled_query.params), depth=depth + 1)
+        debug_query = self._format_sql_for_debug(compiled_query.sql, compiled_query.params)
+        BatchLogger.debug("DB-SELECT", f"SQL: {debug_query}", depth=depth)
 
         rows = []
         if self.provider == "sqlserver":
@@ -68,8 +112,8 @@ class BaseProcessModel(ABC):
         return rows
 
     def cursor_stream(self, compiled_query: CompiledQuery, buffer_size: int = 1000, depth: int = 2):
-        BatchLogger.debug("DB-CURSOR-OPEN", f"SQL: {compiled_query.sql}", depth=depth)
-        BatchLogger.debug("PARAMS", str(compiled_query.params), depth=depth + 1)
+        debug_query = self._format_sql_for_debug(compiled_query.sql, compiled_query.params)
+        BatchLogger.debug("DB-CURSOR-OPEN", f"SQL: {debug_query}", depth=depth)
 
         totale_letti = 0
         if self.provider == "sqlserver":
@@ -113,15 +157,15 @@ class BaseProcessModel(ABC):
                 BatchLogger.debug("RESULT", f"Cursore DB2 chiuso. Record totali letti nello stream: {totale_letti}", depth=depth + 1, is_last=True)
 
     def simulate_mutation(self, compiled_query: CompiledQuery, depth: int = 2) -> int:
+        debug_query = self._format_sql_for_debug(compiled_query.sql, compiled_query.params)
         BatchLogger.warn("DRY-RUN", "Simulazione mutazione: nessuna scrittura su DB2", depth=depth)
-        BatchLogger.debug("DB-MUTATION", f"SQL: {compiled_query.sql}", depth=depth + 1)
-        BatchLogger.debug("PARAMS", str(compiled_query.params), depth=depth + 2)
+        BatchLogger.debug("DB-MUTATION", f"SQL: {debug_query}", depth=depth + 1)
         BatchLogger.debug("RESULT", "Simulati: 1 record impattato", depth=depth + 2, is_last=True)
         return 1
 
     def execute_real_mutation(self, compiled_query: CompiledQuery, depth: int = 2) -> int:
-        BatchLogger.debug("DB-MUTATION", f"[{self.provider.upper()}] SQL: {compiled_query.sql}", depth=depth)
-        BatchLogger.debug("PARAMS", str(compiled_query.params), depth=depth + 1)
+        debug_query = self._format_sql_for_debug(compiled_query.sql, compiled_query.params)
+        BatchLogger.debug("DB-MUTATION", f"[{self.provider.upper()}] SQL: {debug_query}", depth=depth)
 
         affected = 0
         if self.provider == "db2":
@@ -164,8 +208,10 @@ class BaseProcessModel(ABC):
         for row in data_list:
             tuple_batch.append(tuple(self.dialect.format_value(row.get(col)) for col in logical_columns))
 
+        # Esempio debug della prima riga per test rapido
+        debug_sql_sample = self._format_sql_for_debug(sql, tuple_batch[0]) if tuple_batch else sql
         BatchLogger.debug("DB-BULK-INSERT", f"Target: {table_map.name} | Batch size: {len(tuple_batch)}", depth=depth)
-        BatchLogger.debug("SQL", sql, depth=depth + 1)
+        BatchLogger.debug("SQL-SAMPLE", debug_sql_sample, depth=depth + 1)
 
         if (self.dry_run or force_simulate) and self.provider == "db2":
             BatchLogger.warn("DRY-RUN", "Simulazione Bulk Insert su DB2 (nessuna scrittura fisica)", depth=depth + 1, is_last=True)

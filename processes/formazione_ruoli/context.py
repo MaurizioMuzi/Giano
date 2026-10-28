@@ -50,6 +50,24 @@ class FormazioneRuoliContext:
     ws_idavv: int = 0
     ws_ver_ok: int = 0
     ws_ver_er: int = 0
+    timestampInsStato: Optional[datetime] = None
+    ws_cstacar: Optional[str] = None
+
+    # Registri campi da ADCAVV12
+    ws_codConcessione: Optional[str] = None
+    ws_codErr: Optional[str] = None
+    ws_codRav: Optional[str] = None
+    ws_nrav_cid: Optional[str] = None
+
+    cesa_nrav: int = 0
+    prog_nrav: int = 0
+    cabi_nrav: int = 0
+    ciderav_min: int = 0
+    ciderav_max: int = 0
+
+    ws_identificativoAvviso: Optional[str] = None
+    ws_codErr: Optional[str] = None
+
 
     # Dati correnti cursore CURJOI-1
     current_sede: Optional[str] = None
@@ -162,6 +180,7 @@ class FormazioneRuoliContext:
     ws_nespavv: int = 0
     ws_nespart: int = 0
     ws_ntotpar: int = 0
+    record_art_totali = 0
 
     # Indicatori di scarto e switch
     indic_scarto_t01: str = " "

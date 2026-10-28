@@ -1,0 +1,54 @@
+{
+  "table": {
+    "db2": "DTPT03.ADCAVV03",
+    "sqlserver": "ADCAVV03"
+  },
+  "columns": {
+    "codConcessione": {
+      "db2": "CESA",
+      "sqlserver": "CodConcessione",
+      "logical_type": "decimal"
+    },
+    "progRav": {
+      "db2": "PROG",
+      "sqlserver": "ProgRav",
+      "logical_type": "decimal"
+    },
+    "codRavMin": {
+      "db2": "CIDERAV_MIN",
+      "sqlserver": "CodRavMin",
+      "logical_type": "decimal"
+    },
+    "codRavMax": {
+      "db2": "CIDERAV_MAX",
+      "sqlserver": "CodRavMax",
+      "logical_type": "decimal"
+    },
+    "codAbi": {
+      "db2": "CABI",
+      "sqlserver": "CodAbi",
+      "logical_type": "decimal"
+    },
+    "codRav": {
+      "db2": "CIDERAV",
+      "sqlserver": "CodRav",
+      "logical_type": "decimal"
+    },
+    "flgAttrRav": {
+      "db2": "FLGATT",
+      "sqlserver": "FlgAttrRav",
+      "logical_type": "string",
+      "padding": true
+    },
+    "timestampIns": {
+      "db2": "TMSINS",
+      "sqlserver": "TimestampIns",
+      "logical_type": "datetime"
+    },
+    "timestampUpd": {
+      "db2": "TMSUPD",
+      "sqlserver": "TimestampUpd",
+      "logical_type": "datetime"
+    }
+  }
+}

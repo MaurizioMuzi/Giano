@@ -30,6 +30,50 @@ class CompiledQuery:
         self.sql = sql
         self.params = params
 
+    @property
+    def debug_sql(self) -> str:
+        """
+        Restituisce la query SQL con i valori reali sostituiti ai segnaposti '?',
+        formattata per il copia-incolla immediato in qualsiasi client SQL.
+        """
+        if not self.params:
+            return self.sql
+
+        formatted_vals = []
+        for p in self.params:
+            if p is None:
+                formatted_vals.append("NULL")
+            elif isinstance(p, (int, float, Decimal)):
+                formatted_vals.append(str(p))
+            elif isinstance(p, datetime):
+                # Formato compatibile DB2 / SQL Server
+                formatted_vals.append(f"'{p.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}'")
+            elif isinstance(p, date):
+                formatted_vals.append(f"'{p.strftime('%Y-%m-%d')}'")
+            elif isinstance(p, bool):
+                formatted_vals.append("1" if p else "0")
+            else:
+                # Stringhe e altri tipi: raddoppia eventuali apici singoli
+                val_escaped = str(p).replace("'", "''")
+                formatted_vals.append(f"'{val_escaped}'")
+
+        # Sostituzione ordinata dei singoli '?' con i rispettivi valori letterali
+        query_parts = self.sql.split("?")
+        if len(query_parts) - 1 != len(formatted_vals):
+            # Fallback di sicurezza in caso di mismatch
+            return f"-- [PARAM MISMATCH] params={self.params}\n{self.sql}"
+
+        reconstructed = []
+        for i, part in enumerate(query_parts[:-1]):
+            reconstructed.append(part)
+            reconstructed.append(formatted_vals[i])
+        reconstructed.append(query_parts[-1])
+
+        return "".join(reconstructed)
+
+    def __str__(self) -> str:
+        return self.debug_sql
+
 
 class Dialect(ABC):
     """Interfaccia astratta Enterprise configurata su modelli esterni JSON."""
