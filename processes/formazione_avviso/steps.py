@@ -1,6 +1,7 @@
 # processes/formazione_avviso/steps.py
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
+from typing import List, Any, Iterator
 from .context import FormazioneAvvisoContext
 from core.batch_logger import BatchLogger
 from .step_tab14_cfis import AllineamentoAnagrafeStep as AllineamentoCfisStep
@@ -22,6 +23,7 @@ class ElaborazioneCurjoi2Step:
         self.step_aggiorna_tabelle = AggiornaTabelleStep(engine)
         self.step_imp_errore = ImpostaErroreAvvisoStep(engine)
 
+
     def execute_record(self, ctx: FormazioneAvvisoContext, cges: str, anno_avv: int, prog_avv: int, depth: int = 3, is_last_credit: bool = False) -> None:
         t01_map = self.engine.get_table_map("ADCFRT01")
         t10_map = self.engine.get_table_map("ADCFRT10")
@@ -37,136 +39,177 @@ class ElaborazioneCurjoi2Step:
         ctx.ws_nespart = 0
         ctx.indic_errore = " "
 
-        query_curjoi2 = (
-            self.engine.dataset("ADCFRT01")
-            .join(t10_map, alias_self="A", alias_target="B")
-            .on("gestione", "gestione")
-            .on("codiceAtto", "codiceAtto")
-            .on("statoAttivita", "statoArticolo")
-            .select(
-                "codEsattoria", "gestione", "codiceAtto", "statoAttivita", "codiceFiscale",
-                "flgEuro", "dataRifCon", "codAzienda", "dataFallimento", "sede", "zona",
-                "codCentro", "flgCessione", "flgDecadenza", "tipoAvviso", "annoAvviso",
-                "progAvviso", "numPartitaAvviso", "numEspAvviso", "periodo", "periodoBi",
-                "codEsattoriaAvviso", "sedeOrigine", "flgRateizzazione", "flgValFiscale"
-            )
-            .select_joined(
-                "codTributoCnc", "codRata", "numTotRate", "flgResiduo", "impTributo",
-                "impInteressi", "codNaturaTrb", "impTributoCalc", "impAggioTot", "impAggioAnt",
-                "impArrotondamento", "progArticolo", "numIdDecre", "tasso", "impCapitale",
-                "dataFineCalc", "codFasAmm", "impAggio", "statoArticolo"
-            )
-            .filter_by("gestione", "=", cges)
-            .filter_by("sede", "=", ctx.current_sede)
-            .filter_by("zona", "=", ctx.current_zona)
-            .filter_by("annoAvviso", "=", anno_avv)
-            .filter_by("progAvviso", "=", prog_avv)
-            .filter_by("statoAttivita", "=", "0I")
-            .order_by("gestione", "annoAvviso", "progAvviso", "numEspAvviso")
-            .order_by_joined("progArticolo")
-            .with_uncommitted_read()
-            .compile_select()
-        )
-
         record_art_totali = 0
         first_record = True
         avviso_interrotto_per_errore = False
 
-        for chunk in self.engine.cursor_stream(query_curjoi2, buffer_size=500, depth=depth):
-            for raw_row in chunk:
-                record_art_totali += 1
-                row_t01 = t01_map.normalize(raw_row)
-                row_t10 = t10_map.normalize(raw_row)
+        try:
+            for chunk in self._db_stream_curjoi2(ctx, t10_map, cges, anno_avv, prog_avv, depth=depth):
+                for raw_row in chunk:
+                    record_art_totali += 1
+                    row_t01 = t01_map.normalize(raw_row)
+                    row_t10 = t10_map.normalize(raw_row)
 
-                if first_record:
-                    ctx.imp_comodi_key(row_t01, row_t10)
-                    first_record = False
-                    ctx.sw_keyavv = 0
-                else:
-                    stessa_chiave = (
-                        ctx.ws_cges == row_t01.get("gestione") and
-                        ctx.ws_sede == row_t01.get("sede") and
-                        ctx.ws_zona == row_t01.get("zona") and
-                        ctx.ws_annoavv == row_t01.get("annoAvviso") and
-                        ctx.ws_progavv == row_t01.get("progAvviso")
-                    )
-
-                    if not stessa_chiave:
-                        self._on_rottura_avviso(ctx, row_t01=row_t01, depth=depth)
+                    if first_record:
                         ctx.imp_comodi_key(row_t01, row_t10)
+                        first_record = False
                         ctx.sw_keyavv = 0
-
-                # CONTROLLI DI CONGRUITA' ONE-OFF SULL'AVVISO (depth=depth+1 -> 4)
-                if ctx.sw_keyavv == 0:
-                    ctx.sw_keyavv = 1
-
-                    # 1. CNTR-KEY-AVV
-                    ws_count_avv = self._cntr_key_avv(ctx, depth=depth + 1)
-                    if ws_count_avv != (ctx.ws_nparavv or 0):
-                        ctx.ws_erravv = "EXX381"
-                        BatchLogger.warn(
-                            "CNTR-KEY-AVV",
-                            f"Partite disallineate: trovate {ws_count_avv} su ADCFRT01, attese {ctx.ws_nparavv} da NPARAVV (ERR: EXX381)",
-                            depth=depth + 1
-                        )
                     else:
-                        BatchLogger.info("CNTR-KEY-AVV", f"Verifica partite: trovate {ws_count_avv} / attese {ctx.ws_nparavv} [OK]", depth=depth + 1)
+                        stessa_chiave = (
+                            ctx.ws_cges == row_t01.get("gestione") and
+                            ctx.ws_sede == row_t01.get("sede") and
+                            ctx.ws_zona == row_t01.get("zona") and
+                            ctx.ws_annoavv == row_t01.get("annoAvviso") and
+                            ctx.ws_progavv == row_t01.get("progAvviso")
+                        )
 
-                    # 2. CNTR-MAX-ART
-                    if not ctx.ws_erravv.strip():
-                        ws_count_dif = self._cntr_max_art(ctx, depth=depth + 1)
-                        if ws_count_dif > 0:
-                            ctx.ws_erravv = "EXX638"
-                            BatchLogger.warn("CNTR-MAX-ART", "Sequenzialità progressivi articolo non integra (ERR: EXX638)", depth=depth + 1)
+                        if not stessa_chiave:
+                            self._on_rottura_avviso(ctx, row_t01=row_t01, depth=depth)
+                            ctx.imp_comodi_key(row_t01, row_t10)
+                            ctx.sw_keyavv = 0
+
+                    # CONTROLLI DI CONGRUITA' ONE-OFF SULL'AVVISO (depth=depth+1 -> 4)
+                    if ctx.sw_keyavv == 0:
+                        ctx.sw_keyavv = 1
+
+                        # 1. CNTR-KEY-AVV
+                        ws_count_avv = self._cntr_key_avv(ctx, depth=depth + 1)
+                        if ws_count_avv != (ctx.ws_nparavv or 0):
+                            ctx.ws_erravv = "EXX381"
+                            BatchLogger.warn(
+                                "CNTR-KEY-AVV",
+                                f"Partite disallineate: trovate {ws_count_avv} su ADCFRT01, attese {ctx.ws_nparavv} da NPARAVV (ERR: EXX381)",
+                                depth=depth + 1
+                            )
                         else:
-                            BatchLogger.info("CNTR-MAX-ART", "Verifica sequenzialità: MAX(NPRGART)=COUNT(*) [OK]", depth=depth + 1)
+                            BatchLogger.info("CNTR-KEY-AVV", f"Verifica partite: trovate {ws_count_avv} / attese {ctx.ws_nparavv} [OK]", depth=depth + 1)
 
-                    # 3. CNTR-KEY-ART
-                    if not ctx.ws_erravv.strip():
-                        ws_count_art = self._cntr_key_art(ctx, depth=depth + 1)
-                        if ws_count_art > 999:
-                            ctx.ws_erravv = "EXX637"
-                            BatchLogger.warn("CNTR-KEY-ART", f"Massimo numero di articoli superato: {ws_count_art} (ERR: EXX637)", depth=depth + 1)
-                        else:
-                            BatchLogger.info("CNTR-KEY-ART", f"Controllo massimo 999 articoli: {ws_count_art} [OK]", depth=depth + 1)
-
-                    # 4. CNTRL-CF-BLK
-                    esito_blocco = self._cntrl_cf_blk(ctx, depth=depth + 1)
-
-                    # 5. CNTRL-TAB14-CFIS - Gestione doppio ciclo per codici fiscali non bloccati
-                    if esito_blocco == 0 and not ctx.ws_erravv.strip():
-                        if str(getattr(ctx, "ws_forzatura0", "")).strip() in ("0", "1"):
-                            ws_count_cf = self._cntrl_tab14_cfis(ctx, depth=depth + 1)
-                            if ws_count_cf > 0:
-                                self.step_cfis.execute_allineamento(ctx, depth=depth + 1)
+                        # 2. CNTR-MAX-ART
+                        if not ctx.ws_erravv.strip():
+                            ws_count_dif = self._cntr_max_art(ctx, depth=depth + 1)
+                            if ws_count_dif > 0:
+                                ctx.ws_erravv = "EXX638"
+                                BatchLogger.warn("CNTR-MAX-ART", "Sequenzialità progressivi articolo non integra (ERR: EXX638)", depth=depth + 1)
                             else:
-                                BatchLogger.info("ALLINEA-CFIS", "WS-COUNT-CF = 0: nessun allineamento anagrafico richiesto", depth=depth + 1)
+                                BatchLogger.info("CNTR-MAX-ART", "Verifica sequenzialità: MAX(NPRGART)=COUNT(*) [OK]", depth=depth + 1)
 
-                    # 6. CNTRL-TAB14-FOR - Gestione doppio ciclo per codici fiscali bloccati
-                    elif esito_blocco == 1 and not ctx.ws_erravv.strip():
-                        if str(getattr(ctx, "ws_forzatura0", "")).strip() in ("2", "3"):
-                            self.step_for.execute_allineamento_for(ctx, depth=depth + 1)
+                        # 3. CNTR-KEY-ART
+                        if not ctx.ws_erravv.strip():
+                            ws_count_art = self._cntr_key_art(ctx, depth=depth + 1)
+                            if ws_count_art > 999:
+                                ctx.ws_erravv = "EXX637"
+                                BatchLogger.warn("CNTR-KEY-ART", f"Massimo numero di articoli superato: {ws_count_art} (ERR: EXX637)", depth=depth + 1)
+                            else:
+                                BatchLogger.info("CNTR-KEY-ART", f"Controllo massimo 999 articoli: {ws_count_art} [OK]", depth=depth + 1)
 
-                # VALIDAZIONE CONGRUITA' RECORD CDCFRT01 (EXX381 .. EXX534)
-                self._valida_congruita_riga_t01(ctx, row_t01, depth=depth + 1)
+                        # 4. CNTRL-CF-BLK
+                        esito_blocco = self._cntrl_cf_blk(ctx, depth=depth + 1)
 
-                # GESTIONE CONTABILE E RILEVAZIONE SCARTO AVVISO
-                if not ctx.ws_erravv.strip():
-                    self._elabora_singolo_articolo(ctx, row_t01, row_t10)
-                else:
-                    self.step_imp_errore.execute(ctx, row_t01, depth=depth + 1)
-                    avviso_interrotto_per_errore = True
+                        # 5. CNTRL-TAB14-CFIS - Gestione doppio ciclo per codici fiscali non bloccati
+                        if esito_blocco == 0 and not ctx.ws_erravv.strip():
+                            if str(getattr(ctx, "ws_forzatura0", "")).strip() in ("0", "1"):
+                                ws_count_cf = self._cntrl_tab14_cfis(ctx, depth=depth + 1)
+                                if ws_count_cf > 0:
+                                    self.step_cfis.execute_allineamento(ctx, depth=depth + 1)
+                                else:
+                                    BatchLogger.info("ALLINEA-CFIS", "WS-COUNT-CF = 0: nessun allineamento anagrafico richiesto", depth=depth + 1)
+
+                        # 6. CNTRL-TAB14-FOR - Gestione doppio ciclo per codici fiscali bloccati
+                        elif esito_blocco == 1 and not ctx.ws_erravv.strip():
+                            if str(getattr(ctx, "ws_forzatura0", "")).strip() in ("2", "3"):
+                                self.step_for.execute_allineamento_for(ctx, depth=depth + 1)
+
+                    # VALIDAZIONE CONGRUITA' RECORD CDCFRT01 (EXX381 .. EXX534)
+                    self._valida_congruita_riga_t01(ctx, row_t01, depth=depth + 1)
+
+                    # GESTIONE CONTABILE E RILEVAZIONE SCARTO AVVISO
+                    if not ctx.ws_erravv.strip():
+                        self._elabora_singolo_articolo(ctx, row_t01, row_t10)
+                    else:
+                        self.step_imp_errore.execute(ctx, row_t01, depth=depth + 1)
+                        avviso_interrotto_per_errore = True
+                        break
+
+                if avviso_interrotto_per_errore:
                     break
 
-            if avviso_interrotto_per_errore:
-                break
+            if record_art_totali == 0:
+                BatchLogger.warn("ESITO-DETT-T10", "0 articoli correlati su ADCFRT10 per l'avviso", depth=depth, is_last=is_last_credit)
+            else:
+                self._on_rottura_avviso(ctx, row_t01=None, depth=depth, is_last=is_last_credit)
 
-        if record_art_totali == 0:
-            BatchLogger.warn("ESITO-DETT-T10", "0 articoli correlati su ADCFRT10 per l'avviso", depth=depth, is_last=is_last_credit)
-        else:
-            self._on_rottura_avviso(ctx, row_t01=None, depth=depth, is_last=is_last_credit)
+        except Exception as err:
+            BatchLogger.error(
+                "CURJOI2-ERR",
+                f"Errore critico durante l'elaborazione dell'avviso {anno_avv}/{prog_avv} (CGES={cges}): {err}",
+                depth=depth
+            )
+            if hasattr(self.engine, "rollback"):
+                try:
+                    self.engine.rollback()
+                    BatchLogger.warn("CURJOI2-ERR", "Rollback transazionale eseguito a fronte del fallimento", depth=depth)
+                except Exception as rollback_err:
+                    BatchLogger.error("CURJOI2-ERR", f"Fallito il rollback: {rollback_err}", depth=depth)
+
+            ctx.indic_errore = "X"
+            return -1
+
+
+    # =========================================================================
+    # ACCESSI AL DATABASE CURJOI-2 (ISOLATI CON TRY-EXCEPT PUNTUALI)
+    # =========================================================================
+    def _db_stream_curjoi2(self, ctx: FormazioneAvvisoContext, t10_map: Any, cges: str, anno_avv: int, prog_avv: int, depth: int) -> Iterator[List[Any]]:
+        """Accesso atomico DB: cursore streaming per il join ADCFRT01 con ADCFRT10."""
+        try:
+            query = (
+                self.engine.dataset("ADCFRT01")
+                .join(t10_map, alias_self="A", alias_target="B")
+                .on("gestione", "gestione")
+                .on("codiceAtto", "codiceAtto")
+                .on("statoAttivita", "statoArticolo")
+                .select(
+                    "codEsattoria", "gestione", "codiceAtto", "statoAttivita", "codiceFiscale",
+                    "flgEuro", "dataRifCon", "codAzienda", "dataFallimento", "sede", "zona",
+                    "codCentro", "flgCessione", "flgDecadenza", "tipoAvviso", "annoAvviso",
+                    "progAvviso", "numPartitaAvviso", "numEspAvviso", "periodo", "periodoBi",
+                    "codEsattoriaAvviso", "sedeOrigine", "flgRateizzazione", "flgValFiscale"
+                )
+                .select_joined(
+                    "codTributoCnc", "codRata", "numTotRate", "flgResiduo", "impTributo",
+                    "impInteressi", "codNaturaTrb", "impTributoCalc", "impAggioTot", "impAggioAnt",
+                    "impArrotondamento", "progArticolo", "numIdDecre", "tasso", "impCapitale",
+                    "dataFineCalc", "codFasAmm", "impAggio", "statoArticolo"
+                )
+                .filter_by("gestione", "=", cges)
+                .filter_by("sede", "=", ctx.current_sede)
+                .filter_by("zona", "=", ctx.current_zona)
+                .filter_by("annoAvviso", "=", anno_avv)
+                .filter_by("progAvviso", "=", prog_avv)
+                .filter_by("statoAttivita", "=", "0I")
+                .order_by("gestione", "annoAvviso", "progAvviso", "numEspAvviso")
+                .order_by_joined("progArticolo")
+                .with_uncommitted_read()
+                .compile_select()
+            )
+            return self.engine.cursor_stream(query, buffer_size=500, depth=depth)
+        except Exception as err:
+            BatchLogger.error(
+                "DB-STREAM-CURJOI2-ERR",
+                f"Errore DB durante l'apertura cursore CURJOI2 [CGES={cges}, ANNO={anno_avv}, PROG={prog_avv}]: {err}",
+                depth=depth
+            )
+
+            ctx.indic_errore = "X"
+            return -1
+
 
     def _cntr_key_avv(self, ctx: FormazioneAvvisoContext, depth: int = 4) -> int:
+        res = self._db_fetch_cntr_key_avv(ctx, depth=depth)
+        return int(list(res[0].values())[0]) if res else 0
+
+
+    def _db_fetch_cntr_key_avv(self, ctx: FormazioneAvvisoContext, depth: int) -> List[Any]:
+        """Accesso atomico DB: conteggio partite per avviso su ADCFRT01."""
         try:
             query = (
                 self.engine.dataset("ADCFRT01")
@@ -180,14 +223,25 @@ class ElaborazioneCurjoi2Step:
                 .with_uncommitted_read()
                 .compile_select()
             )
-            res = self.engine.fetch(query, depth=depth)
-            return int(list(res[0].values())[0]) if res else 0
+            return self.engine.fetch(query, depth=depth)
         except Exception as err:
-            BatchLogger.error("CNTR-KEY-AVV", f"Errore DB in conteggio partite: {err}", depth=depth)
+            BatchLogger.error(
+                "DB-CNTR-KEY-AVV-ERR",
+                f"Errore DB durante conteggio partite avviso [{ctx.ws_annoavv}/{ctx.ws_progavv}]: {err}",
+                depth=depth
+            )
+
             ctx.indic_errore = "X"
             return -1
 
+
     def _cntr_max_art(self, ctx: FormazioneAvvisoContext, depth: int = 4) -> int:
+        res = self._db_fetch_cntr_max_art(ctx, depth=depth)
+        return int(list(res[0].values())[0]) if res else 0
+
+
+    def _db_fetch_cntr_max_art(self, ctx: FormazioneAvvisoContext, depth: int) -> List[Any]:
+        """Accesso atomico DB: verifica numerazione progressivi su ADCFRT10."""
         t10_map = self.engine.get_table_map("ADCFRT10")
         col_prg_b = f"B.{t10_map.progArticolo}"
         try:
@@ -211,14 +265,25 @@ class ElaborazioneCurjoi2Step:
                 .with_uncommitted_read()
                 .compile_select()
             )
-            res = self.engine.fetch(query, depth=depth)
-            return int(list(res[0].values())[0]) if res else 0
+            return self.engine.fetch(query, depth=depth)
         except Exception as err:
-            BatchLogger.error("CNTR-MAX-ART", f"Errore DB in conteggio numerazione sequenziale: {err}", depth=depth)
+            BatchLogger.error(
+                "DB-CNTR-MAX-ART-ERR",
+                f"Errore DB in verifica sequenzialità articoli per avviso [{ctx.ws_annoavv}/{ctx.ws_progavv}]: {err}",
+                depth=depth
+            )
+
             ctx.indic_errore = "X"
             return -1
 
+
     def _cntr_key_art(self, ctx: FormazioneAvvisoContext, depth: int = 4) -> int:
+        res = self._db_fetch_cntr_key_art(ctx, depth=depth)
+        return int(list(res[0].values())[0]) if res else 0
+
+
+    def _db_fetch_cntr_key_art(self, ctx: FormazioneAvvisoContext, depth: int) -> List[Any]:
+        """Accesso atomico DB: conteggio articoli per avviso (limite 999)."""
         t10_map = self.engine.get_table_map("ADCFRT10")
         try:
             query = (
@@ -236,15 +301,42 @@ class ElaborazioneCurjoi2Step:
                 .with_uncommitted_read()
                 .compile_select()
             )
-            res = self.engine.fetch(query, depth=depth)
-            return int(list(res[0].values())[0]) if res else 0
+            return self.engine.fetch(query, depth=depth)
         except Exception as err:
-            BatchLogger.error("CNTR-KEY-ART", f"Errore DB in conteggio limite max 999: {err}", depth=depth)
+            BatchLogger.error(
+                "DB-CNTR-KEY-ART-ERR",
+                f"Errore DB durante conteggio totale articoli per avviso [{ctx.ws_annoavv}/{ctx.ws_progavv}]: {err}",
+                depth=depth
+            )
+
             ctx.indic_errore = "X"
             return -1
 
+
     def _cntrl_cf_blk(self, ctx: FormazioneAvvisoContext, depth: int = 4) -> int:
         t62_map = self.engine.get_table_map("ADCFRT62")
+        res = self._db_fetch_cntrl_cf_blk(ctx, depth=depth)
+        if not res:
+            ctx.ws_flgblk = "0"
+            BatchLogger.info("CNTR-BLOCCO-CF", "Record CDCFRT62 assente -> CF non bloccato (WS-FLGBLK='0')", depth=depth)
+            return 0
+
+        row = t62_map.normalize(res[0])
+        flgblk = str(row.get("flagBlocco", "")).strip()
+        dt_upd = row.get("timestampVarInfo")
+
+        in_finestra = bool(dt_upd and ctx.diniinf and ctx.dfininf and ctx.diniinf <= dt_upd <= ctx.dfininf)
+        ctx.ws_flgblk = "1" if (flgblk != "0" or in_finestra) else "0"
+
+        dettaglio = f"FLGBLK='{flgblk}'" + (
+            f" (DataUpd={dt_upd} in finestra [{ctx.diniinf}..{ctx.dfininf}])" if in_finestra else ""
+        )
+        BatchLogger.info("CNTR-BLOCCO-CF", f"{dettaglio} -> WS-FLGBLK='{ctx.ws_flgblk}'", depth=depth)
+        return int(ctx.ws_flgblk)
+
+
+    def _db_fetch_cntrl_cf_blk(self, ctx: FormazioneAvvisoContext, depth: int) -> List[Any]:
+        """Accesso atomico DB: lettura stato blocco codice fiscale su ADCFRT62."""
         try:
             query = (
                 self.engine.dataset("ADCFRT62")
@@ -254,61 +346,90 @@ class ElaborazioneCurjoi2Step:
                 .with_uncommitted_read()
                 .compile_select()
             )
-            res = self.engine.fetch(query, depth=depth)
-            if not res:
-                ctx.ws_flgblk = "0"
-                BatchLogger.info("CNTR-BLOCCO-CF", "Record CDCFRT62 assente -> CF non bloccato (WS-FLGBLK='0')", depth=depth)
-                return 0
-
-            row = t62_map.normalize(res[0])
-            flgblk = str(row.get("flagBlocco", "")).strip()
-            dt_upd = row.get("timestampVarInfo")
-
-            in_finestra = bool(dt_upd and ctx.diniinf and ctx.dfininf and ctx.diniinf <= dt_upd <= ctx.dfininf)
-            ctx.ws_flgblk = "1" if (flgblk != "0" or in_finestra) else "0"
-
-            dettaglio = f"FLGBLK='{flgblk}'" + (
-                f" (DataUpd={dt_upd} in finestra [{ctx.diniinf}..{ctx.dfininf}])" if in_finestra else ""
-            )
-            BatchLogger.info("CNTR-BLOCCO-CF", f"{dettaglio} -> WS-FLGBLK='{ctx.ws_flgblk}'", depth=depth)
-            return int(ctx.ws_flgblk)
+            return self.engine.fetch(query, depth=depth)
         except Exception as err:
-            BatchLogger.error("CNTR-BLOCCO-CF", f"Errore DB in verifica codice fiscale bloccato: {err}", depth=depth)
+            BatchLogger.error("DB-CNTR-BLOCCO-CF-ERR", f"Errore DB durante verifica blocco per CF {ctx.ws_cfis}: {err}", depth=depth)
+
             ctx.indic_errore = "X"
             return -1
 
+
     def _cntrl_tab14_cfis(self, ctx: FormazioneAvvisoContext, depth: int = 4) -> int:
-        t01_dataset = self.engine.dataset("ADCFRT01")
         t01_map = self.engine.get_table_map("ADCFRT01")
+        res = self._db_fetch_cntrl_tab14_cfis(ctx, t01_map, depth=depth)
+        count_val = int(list(res[0].values())[0]) if res else 0
+        BatchLogger.info("CNTRL-T14-CFIS", f"WS-COUNT-CF calcolato: {count_val}", depth=depth)
+        return count_val
+
+    def _db_fetch_cntrl_tab14_cfis(self, ctx: FormazioneAvvisoContext, t01_map: Any, depth: int) -> List[Any]:
+        """Accesso atomico DB: verifica presenza di più avvisi per il medesimo codice fiscale."""
+        t01_dataset = self.engine.dataset("ADCFRT01")
         try:
-            sub_exists = (
-                t01_dataset.exists(t01_map, alias="B")
-                .correlate("codiceFiscale", "codiceFiscale", t01_map)
+            t01_map = self.engine.get_table_map("ADCFRT01")
+
+            # 1. Costruzione della sottoquery EXISTS (B correlata ad A)
+            exists_subquery = (
+                self.engine.dataset("ADCFRT01")
+                .exists(target_table_map=t01_map, alias="B")
+                .correlate("codiceFiscale", "codiceFiscale", parent_table_map=t01_map)
                 .filter_by("dataInf", ">=", ctx.diniinf)
                 .filter_by("dataInf", "<=", ctx.dfininf)
                 .correlate_mismatch(
-                    "gestione", "sede", "zona", "annoAvviso", "tipoAvviso", "progAvviso",
-                    parent_table_map=t01_map, operator="<>"
+                    "gestione",
+                    "sede",
+                    "zona",
+                    "annoAvviso",
+                    "tipoAvviso",
+                    "progAvviso",
+                    parent_table_map=t01_map
                 )
                 .filter_by("statoAttivita", "=", "0I")
             )
+
+            # 2. Costruzione della query principale su ADCFRT01 A
             query = (
-                t01_dataset
+                self.engine.dataset("ADCFRT01")
                 .count()
+                .filter_by("gestione", "=", ctx.ws_cges)
                 .filter_by("codiceFiscale", "=", ctx.ws_cfis)
+                .filter_by("dataInf", ">=", ctx.diniinf)
+                .filter_by("dataInf", "<=", ctx.dfininf)
                 .filter_by("statoAttivita", "=", "0I")
-                .where_exists(sub_exists)
+                .where_exists(exists_subquery)
+                .group_by(
+                    "codiceFiscale",
+                    "gestione",
+                    "sede",
+                    "zona",
+                    "annoAvviso",
+                    "tipoAvviso",
+                    "progAvviso",
+                    "numPartitaAvviso"
+                )
                 .with_uncommitted_read()
                 .compile_select()
             )
-            res = self.engine.fetch(query, depth=depth)
-            count_val = int(list(res[0].values())[0]) if res else 0
-            BatchLogger.info("CNTRL-T14-CFIS", f"WS-COUNT-CF calcolato: {count_val}", depth=depth)
-            return count_val
+
+            results = self.engine.fetch(query, depth=depth)
+
+            # Se la query a gruppi restituisce righe, WS-COUNT-CF riflette il numero di gruppi o il totale
+            total_count = sum(r[0] for r in results if r) if results else 0
+            ctx.ws_count_cf = total_count
+            ctx.ws_null_cf = 0 if results else -1
+
+            BatchLogger.info(
+                "CNTRL-TAB14-CFIS",
+                f"Controllo CF={ctx.ws_cfis}: gruppi={len(results)}, total_count={total_count}",
+                depth=depth
+            )
+            return total_count
+
         except Exception as err:
-            BatchLogger.error("CNTRL-T14-CFIS", f"Errore DB in verifica codice fiscale con più avvisi: {err}", depth=depth)
+            BatchLogger.error("DB-CNTRL-T14-CFIS-ERR", f"Errore DB in conteggio avvisi correlati per CF {ctx.ws_cfis}: {err}", depth=depth)
+
             ctx.indic_errore = "X"
             return -1
+
 
     def _parse_decimal(self, value) -> Decimal:
         if value is None:
@@ -320,6 +441,7 @@ class ElaborazioneCurjoi2Step:
             return Decimal(val_str)
         except (InvalidOperation, ValueError):
             return Decimal("0")
+
 
     def _valida_congruita_riga_t01(self, ctx: FormazioneAvvisoContext, row_t01: dict, depth: int = 4) -> None:
         if ctx.ws_erravv.strip():
@@ -398,6 +520,7 @@ class ElaborazioneCurjoi2Step:
             BatchLogger.warn("VAL-CONGRUITA", f"Flag validità fiscale non conforme: '{fvalfis}' non compreso tra [{f0}, {f1}] (ERR: EXX534)", depth=depth)
             return
 
+
     def _on_rottura_avviso(self, ctx: FormazioneAvvisoContext, row_t01: dict = None, depth: int = 3, is_last: bool = False) -> None:
         if row_t01:
             BatchLogger.info("ROTTURA-CHIAVE", "**** ROTTURA CHIAVE **** [NUOVA CHIAVE AVVISO RILEVATA]", depth=depth)
@@ -432,8 +555,10 @@ class ElaborazioneCurjoi2Step:
         ctx.ws_erravv = ""
         ctx.indic_errore = " "
 
+
     def _aggiorna_tabelle(self, ctx: FormazioneAvvisoContext, depth: int = 4) -> None:
         self.step_aggiorna_tabelle.execute(ctx, depth=depth)
+
 
     def _elabora_singolo_articolo(self, ctx: FormazioneAvvisoContext, row_t01: dict, row_t10: dict) -> None:
         itrb = self._parse_decimal(row_t10.get("impTributo"))
@@ -453,76 +578,105 @@ class ElaborazioneCurjoi12AStep:
         self.engine = engine
         self.step_curjoi2 = ElaborazioneCurjoi2Step(engine)
 
+
     def execute(self, ctx: FormazioneAvvisoContext, depth: int = 2) -> None:
         t01_map = self.engine.get_table_map("ADCFRT01")
-
-        query = (
-            self.engine.dataset("ADCFRT01")
-            .distinct()
-            .select("gestione", "sede", "zona", "annoAvviso", "progAvviso")
-            .filter_by("statoAttivita", "=", "0I")
-            .filter_by("sede", "=", ctx.current_sede)
-            .filter_by("zona", "=", ctx.current_zona)
-            .filter_by("codCentro", "=", ctx.current_cod_centro)
-            .with_uncommitted_read()
-            .compile_select()
-        )
-
         dettagli_record = []
-        for chunk in self.engine.cursor_stream(query, buffer_size=500, depth=depth):
-            for raw_row in chunk:
-                row = t01_map.normalize(raw_row)
-                dettagli_record.append({
-                    "cges": row.get("gestione"),
-                    "csed": row.get("sede"),
-                    "czon": row.get("zona"),
-                    "annoavv": row.get("annoAvviso"),
-                    "progavv": row.get("progAvviso")
-                })
 
-        tot_crediti = len(dettagli_record)
-        ctx.righe_elaborate_sede = tot_crediti
+        try:
+            for chunk in self._db_stream_curjoi2a(ctx, depth=depth):
+                for raw_row in chunk:
+                    row = t01_map.normalize(raw_row)
+                    dettagli_record.append({
+                        "cges": row.get("gestione"),
+                        "csed": row.get("sede"),
+                        "czon": row.get("zona"),
+                        "annoavv": row.get("annoAvviso"),
+                        "progavv": row.get("progAvviso")
+                    })
 
-        if tot_crediti == 0:
-            BatchLogger.info("SCAN-ATTI-T01", "Crediti infasati rilevati (stato 0I): 0", depth=depth)
-            return
+            tot_crediti = len(dettagli_record)
+            ctx.righe_elaborate_sede = tot_crediti
 
-        BatchLogger.info("SCAN-ATTI-T01", f"Crediti infasati rilevati (stato 0I): {tot_crediti}", depth=depth)
+            if tot_crediti == 0:
+                BatchLogger.info("SCAN-ATTI-T01", "Crediti infasati rilevati (stato 0I): 0", depth=depth)
+                return
 
-        tbl_sep = "+--------+------+------+------+---------+------------+"
-        header = f"| {'PROG':<6} | {'CGES':<4} | {'CSED':<4} | {'CZON':<4} | {'ANNOAVV':<7} | {'PROGAVV':<10} |"
+            BatchLogger.info("SCAN-ATTI-T01", f"Crediti infasati rilevati (stato 0I): {tot_crediti}", depth=depth)
 
-        BatchLogger.info("ELENCO-CREDITI", tbl_sep, depth=depth)
-        BatchLogger.info("ELENCO-CREDITI", header, depth=depth)
-        BatchLogger.info("ELENCO-CREDITI", tbl_sep, depth=depth)
-        for idx, r in enumerate(dettagli_record, start=1):
-            row_str = f"| {idx:<6} | {str(r['cges']):<4} | {str(r['csed']):<4} | {str(r['czon']):<4} | {str(r['annoavv']):<7} | {str(r['progavv']):<10} |"
-            BatchLogger.info("ELENCO-CREDITI", row_str, depth=depth)
-        BatchLogger.info("ELENCO-CREDITI", tbl_sep, depth=depth)
+            tbl_sep = "+--------+------+------+------+---------+------------+"
+            header = f"| {'PROG':<6} | {'CGES':<4} | {'CSED':<4} | {'CZON':<4} | {'ANNOAVV':<7} | {'PROGAVV':<10} |"
 
-        for idx, r in enumerate(dettagli_record, start=1):
-            is_last_credit = (idx == tot_crediti)
+            BatchLogger.info("ELENCO-CREDITI", tbl_sep, depth=depth)
+            BatchLogger.info("ELENCO-CREDITI", header, depth=depth)
+            BatchLogger.info("ELENCO-CREDITI", tbl_sep, depth=depth)
+            for idx, r in enumerate(dettagli_record, start=1):
+                row_str = f"| {idx:<6} | {str(r['cges']):<4} | {str(r['csed']):<4} | {str(r['czon']):<4} | {str(r['annoavv']):<7} | {str(r['progavv']):<10} |"
+                BatchLogger.info("ELENCO-CREDITI", row_str, depth=depth)
+            BatchLogger.info("ELENCO-CREDITI", tbl_sep, depth=depth)
 
-            # Separatore iniziale del blocco credito (allineato ad albero)
-            BatchLogger.separator(depth=depth + 1)
+            for idx, r in enumerate(dettagli_record, start=1):
+                is_last_credit = (idx == tot_crediti)
 
-            BatchLogger.info(
-                "CREDITO-ATTIVO",
-                f"[{idx}/{tot_crediti}] CGES={r['cges']} | ANNO={r['annoavv']} | PROG={r['progavv']}",
-                depth=depth + 1,
-                is_last=False
+                # Separatore iniziale del blocco credito (allineato ad albero)
+                BatchLogger.separator(depth=depth + 1)
+
+                BatchLogger.info(
+                    "CREDITO-ATTIVO",
+                    f"[{idx}/{tot_crediti}] CGES={r['cges']} | ANNO={r['annoavv']} | PROG={r['progavv']}",
+                    depth=depth + 1,
+                    is_last=False
+                )
+                self.step_curjoi2.execute_record(
+                    ctx=ctx,
+                    cges=r["cges"],
+                    anno_avv=r["annoavv"],
+                    prog_avv=r["progavv"],
+                    depth=depth + 1,
+                    is_last_credit=is_last_credit
+                )
+
+                # Separatore di chiusura del blocco credito (allineato ad albero)
+                BatchLogger.separator(depth=depth + 1)
+
+        except Exception as err:
+            BatchLogger.error(
+                "CURJOI2A-ERR",
+                f"Errore critico durante la scansione crediti distinti per sede {ctx.current_sede}: {err}",
+                depth=depth
             )
-            self.step_curjoi2.execute_record(
-                ctx=ctx,
-                cges=r["cges"],
-                anno_avv=r["annoavv"],
-                prog_avv=r["progavv"],
-                depth=depth + 1,
-                is_last_credit=is_last_credit
+            ctx.indic_errore = "X"
+            #raise err
+            return -1
+
+
+    # =========================================================================
+    # ACCESSI AL DATABASE CURJOI-2A (ISOLATI CON TRY-EXCEPT PUNTUALI)
+    # =========================================================================
+    def _db_stream_curjoi2a(self, ctx: FormazioneAvvisoContext, depth: int) -> Iterator[List[Any]]:
+        """Accesso atomico DB: scansione crediti distinti su ADCFRT01 per sede/zona/centro."""
+        try:
+            query = (
+                self.engine.dataset("ADCFRT01")
+                .distinct()
+                .select("gestione", "sede", "zona", "annoAvviso", "progAvviso")
+                .filter_by("statoAttivita", "=", "0I")
+                .filter_by("sede", "=", ctx.current_sede)
+                .filter_by("zona", "=", ctx.current_zona)
+                .filter_by("codCentro", "=", ctx.current_cod_centro)
+                .with_uncommitted_read()
+                .compile_select()
+            )
+            return self.engine.cursor_stream(query, buffer_size=500, depth=depth)
+        except Exception as err:
+            BatchLogger.error(
+                "DB-STREAM-CURJOI2A-ERR",
+                f"Errore DB in apertura cursore crediti distinti CURJOI2A [SEDE={ctx.current_sede}, ZONA={ctx.current_zona}]: {err}",
+                depth=depth
             )
 
-            # Separatore di chiusura del blocco credito (allineato ad albero)
-            BatchLogger.separator(depth=depth + 1)
+            ctx.indic_errore = "X"
+            return -1
 
 
 class ElaborazioneCurjoi1Step:
@@ -532,111 +686,172 @@ class ElaborazioneCurjoi1Step:
         self.engine = engine
         self.step_curjoi_2a = ElaborazioneCurjoi12AStep(engine)
 
+
     def execute(self, ctx: FormazioneAvvisoContext) -> None:
         BatchLogger.info("SCAN-SEDI-T17", "Avvio scansione sedi operative (CURJOI-1 su ADCTET17)", depth=0)
         t17_map = self.engine.get_table_map("ADCTET17")
-
-        query = (
-            self.engine.dataset("ADCTET17")
-            .distinct()
-            .select("sede", "zona", "codCentro", "codServizio")
-            .filter_by("codServizio", "=", "AV")
-            .filter_by("dataPre", "<=", date.today())
-            .order_by("sede", "zona", "codCentro")
-            .with_uncommitted_read()
-            .compile_select()
-        )
-
         rows = []
-        for chunk in self.engine.cursor_stream(query, buffer_size=500, depth=1):
-            for raw_row in chunk:
-                rows.append(t17_map.normalize(raw_row))
 
-        tot_sedi = len(rows)
-        ctx.totale_record_curjoi1 = tot_sedi
-        ctx.indic_aggiorna = False
-        riepilogo_sedi = []
+        try:
+            for chunk in self._db_stream_curjoi1(depth=1):
+                for raw_row in chunk:
+                    rows.append(t17_map.normalize(raw_row))
 
-        for idx, row in enumerate(rows, start=1):
-            is_last_sede = (idx == tot_sedi)
+            tot_sedi = len(rows)
+            ctx.totale_record_curjoi1 = tot_sedi
+            ctx.indic_aggiorna = False
+            riepilogo_sedi = []
 
-            ctx.current_sede = row.get("sede")
-            ctx.current_zona = row.get("zona")
-            ctx.current_cod_centro = row.get("codCentro")
-            ctx.current_cod_servizio = row.get("codServizio")
-            ctx.righe_elaborate_sede = 0
-            ctx.indic_errore = " "
+            for idx, row in enumerate(rows, start=1):
+                is_last_sede = (idx == tot_sedi)
 
-            BatchLogger.info(
-                "SEDE-OPERATIVA",
-                f"[{idx}/{tot_sedi}] CSED={ctx.current_sede} | CZON={ctx.current_zona} | CCOP={ctx.current_cod_centro}",
-                depth=1
-            )
+                ctx.current_sede = row.get("sede")
+                ctx.current_zona = row.get("zona")
+                ctx.current_cod_centro = row.get("codCentro")
+                ctx.current_cod_servizio = row.get("codServizio")
+                ctx.righe_elaborate_sede = 0
+                ctx.indic_errore = " "
 
-            self.step_curjoi_2a.execute(ctx, depth=2)
+                BatchLogger.info(
+                    "SEDE-OPERATIVA",
+                    f"[{idx}/{tot_sedi}] CSED={ctx.current_sede} | CZON={ctx.current_zona} | CCOP={ctx.current_cod_centro}",
+                    depth=1
+                )
 
-            stato_aggiornamento = "NON AGGIORNATO"
+                self.step_curjoi_2a.execute(ctx, depth=2)
+
+                stato_aggiornamento = "NON AGGIORNATO"
+                if ctx.indic_errore != "X":
+                    self._aggiorna_tab17(ctx, is_last=is_last_sede, depth=2)
+                    stato_aggiornamento = "IN (AGGIORNATO)"
+                    ctx.indic_aggiorna = True
+
+                riepilogo_sedi.append({
+                    "prog": idx,
+                    "csed": ctx.current_sede,
+                    "czon": ctx.current_zona,
+                    "ccop": ctx.current_cod_centro,
+                    "crediti": ctx.righe_elaborate_sede,
+                    "stato": stato_aggiornamento
+                })
+                ctx.righe_elaborate_sede = 0
+
+            # Fine ciclo sedi: se non ci sono errori bloccanti, aggiorna lo stato generale IF
             if ctx.indic_errore != "X":
-                self._aggiorna_tab17(ctx, is_last=is_last_sede, depth=2)
-                stato_aggiornamento = "IN (AGGIORNATO)"
-                ctx.indic_aggiorna = True
+                self._aggiorna_tet17(ctx, is_last=True, depth=1)
+                ctx.indic_aggiorna_if = True
 
-            riepilogo_sedi.append({
-                "prog": idx,
-                "csed": ctx.current_sede,
-                "czon": ctx.current_zona,
-                "ccop": ctx.current_cod_centro,
-                "crediti": ctx.righe_elaborate_sede,
-                "stato": stato_aggiornamento
-            })
-            ctx.righe_elaborate_sede = 0
+            if riepilogo_sedi:
+                BatchLogger.separator(depth=1)
+                BatchLogger.info("RIEPILOGO-SEDI", f"Elenco complessivo sedi esaminate ({tot_sedi} totali):", depth=1)
+                tbl_sep = "+--------+------+------+------+---------+----------------+"
+                header = f"| {'PROG':<6} | {'CSED':<4} | {'CZON':<4} | {'CCOP':<4} | {'CREDITI':<7} | {'STATO AGG.':<14} |"
+                BatchLogger.info("RIEPILOGO-SEDI", tbl_sep, depth=1)
+                BatchLogger.info("RIEPILOGO-SEDI", header, depth=1)
+                BatchLogger.info("RIEPILOGO-SEDI", tbl_sep, depth=1)
+                for s in riepilogo_sedi:
+                    row_str = f"| {s['prog']:<6} | {str(s['csed']):<4} | {str(s['czon']):<4} | {str(s['ccop']):<4} | {s['crediti']:<7} | {s['stato']:<14} |"
+                    BatchLogger.info("RIEPILOGO-SEDI", row_str, depth=1)
+                BatchLogger.info("RIEPILOGO-SEDI", tbl_sep, depth=1)
 
-        # Fine ciclo sedi: se non ci sono errori bloccanti, aggiorna lo stato generale IF
-        if ctx.indic_errore != "X":
-            self._aggiorna_tet17(ctx, is_last=True, depth=1)
-            ctx.indic_aggiorna_if = True
+            BatchLogger.separator(depth=0)
+            BatchLogger.info("CHIUSURA-CUR1", "Elaborazione CURJOI-1 terminata per tutte le sedi", depth=0, is_last=True)
+            if not ctx.indic_aggiorna:
+                BatchLogger.warn("SEGNALAZIONE", "Nessun ruolo generato per questa elaborazione.", depth=1, is_last=True)
 
-        if riepilogo_sedi:
-            BatchLogger.separator(depth=1)
-            BatchLogger.info("RIEPILOGO-SEDI", f"Elenco complessivo sedi esaminate ({tot_sedi} totali):", depth=1)
-            tbl_sep = "+--------+------+------+------+---------+----------------+"
-            header = f"| {'PROG':<6} | {'CSED':<4} | {'CZON':<4} | {'CCOP':<4} | {'CREDITI':<7} | {'STATO AGG.':<14} |"
-            BatchLogger.info("RIEPILOGO-SEDI", tbl_sep, depth=1)
-            BatchLogger.info("RIEPILOGO-SEDI", header, depth=1)
-            BatchLogger.info("RIEPILOGO-SEDI", tbl_sep, depth=1)
-            for s in riepilogo_sedi:
-                row_str = f"| {s['prog']:<6} | {str(s['csed']):<4} | {str(s['czon']):<4} | {str(s['ccop']):<4} | {s['crediti']:<7} | {s['stato']:<14} |"
-                BatchLogger.info("RIEPILOGO-SEDI", row_str, depth=1)
-            BatchLogger.info("RIEPILOGO-SEDI", tbl_sep, depth=1)
+        except Exception as err:
+            BatchLogger.error(
+                "CURJOI1-ERR",
+                f"Errore critico durante la scansione sedi operative CURJOI-1: {err}",
+                depth=0
+            )
+            if hasattr(self.engine, "rollback"):
+                try:
+                    self.engine.rollback()
+                    BatchLogger.warn("CURJOI1-ERR", "Rollback transazionale eseguito a fronte del fallimento sedi", depth=0)
+                except Exception as rollback_err:
+                    BatchLogger.error("CURJOI1-ERR", f"Fallito il rollback: {rollback_err}", depth=0)
 
-        BatchLogger.separator(depth=0)
-        BatchLogger.info("CHIUSURA-CUR1", "Elaborazione CURJOI-1 terminata per tutte le sedi", depth=0, is_last=True)
-        if not ctx.indic_aggiorna:
-            BatchLogger.warn("SEGNALAZIONE", "Nessun ruolo generato per questa elaborazione.", depth=1, is_last=True)
+            ctx.indic_errore = "X"
+            #raise err
+            return -1
+
+
+    # =========================================================================
+    # ACCESSI AL DATABASE CURJOI-1 (ISOLATI CON TRY-EXCEPT PUNTUALI)
+    # =========================================================================
+    def _db_stream_curjoi1(self, depth: int) -> Iterator[List[Any]]:
+        """Accesso atomico DB: apertura cursore sedi operative su ADCTET17 con codServizio='AV'."""
+        try:
+            query = (
+                self.engine.dataset("ADCTET17")
+                .distinct()
+                .select("sede", "zona", "codCentro", "codServizio")
+                .filter_by("codServizio", "=", "AV")
+                .filter_by("dataPre", "<=", date.today())
+                .order_by("sede", "zona", "codCentro")
+                .with_uncommitted_read()
+                .compile_select()
+            )
+            return self.engine.cursor_stream(query, buffer_size=500, depth=depth)
+
+        except Exception as err:
+            BatchLogger.error("DB-STREAM-CURJOI1-ERR", f"Errore DB durante apertura cursore sedi ADCTET17: {err}", depth=depth)
+
+            ctx.indic_errore = "X"
+            return -1
+
 
     def _aggiorna_tab17(self, ctx: FormazioneAvvisoContext, is_last: bool = False, depth: int = 2) -> None:
         """Aggiorna lo stato del record su ADCTET17 impostando il servizio a 'IN'."""
-        upd_tab17 = (
-            self.engine.dataset("ADCTET17")
-            .filter_by("sede", "=", ctx.current_sede)
-            .filter_by("zona", "=", ctx.current_zona)
-            .filter_by("codCentro", "=", ctx.current_cod_centro)
-            .compile_update({
-                "codServizio": "IN",
-                "timestamp": datetime(1, 1, 1, 0, 0, 0)
-            })
-        )
-        righe_impattate = self.engine.execute_mutation(upd_tab17, depth=depth + 1)
+        righe_impattate = self._db_update_tab17_in(ctx, depth=depth + 1)
         BatchLogger.info("UPD-STATO-T17", f"UPDATE ADCTET17 -> CDAS='IN' (Righe impattate: {righe_impattate})", depth=depth, is_last=is_last)
+
+
+    def _db_update_tab17_in(self, ctx: FormazioneAvvisoContext, depth: int) -> int:
+        """Accesso atomico DB: aggiornamento di singola sede a CDAS='IN'."""
+        try:
+            upd_tab17 = (
+                self.engine.dataset("ADCTET17")
+                .filter_by("sede", "=", ctx.current_sede)
+                .filter_by("zona", "=", ctx.current_zona)
+                .filter_by("codCentro", "=", ctx.current_cod_centro)
+                .compile_update({
+                    "codServizio": "IN",
+                    "timestamp": datetime(1, 1, 1, 0, 0, 0)
+                })
+            )
+            return self.engine.execute_mutation(upd_tab17, depth=depth)
+        except Exception as err:
+            BatchLogger.error(
+                "DB-UPD-TAB17-IN-ERR",
+                f"Errore DB durante UPDATE sede [SEDE={ctx.current_sede}, ZONA={ctx.current_zona}, CENTRO={ctx.current_cod_centro}] a 'IN': {err}",
+                depth=depth
+            )
+
+            ctx.indic_errore = "X"
+            return -1
+
 
     def _aggiorna_tet17(self, ctx: FormazioneAvvisoContext, is_last: bool = False, depth: int = 1) -> None:
         """Aggiorna massivamente lo stato del record su ADCTET17 impostando il servizio a 'IF' a fine elaborazione."""
-        upd_tet17 = (
-            self.engine.dataset("ADCTET17")
-            .compile_update({
-                "codServizio": "IF",
-                "timestamp": datetime.now()
-            })
-        )
-        righe_impattate_if = self.engine.execute_mutation(upd_tet17, depth=depth + 1)
+        righe_impattate_if = self._db_update_tet17_if(depth=depth + 1)
         BatchLogger.info("UPD-STATO-T17", f"UPDATE ADCTET17 -> CDAS='IF' (Righe impattate: {righe_impattate_if})", depth=depth, is_last=is_last)
+
+
+    def _db_update_tet17_if(self, depth: int) -> int:
+        """Accesso atomico DB: aggiornamento massivo di fine ciclo a CDAS='IF'."""
+        try:
+            upd_tet17 = (
+                self.engine.dataset("ADCTET17")
+                .compile_update({
+                    "codServizio": "IF",
+                    "timestamp": datetime.now()
+                })
+            )
+            return self.engine.execute_mutation(upd_tet17, depth=depth)
+        except Exception as err:
+            BatchLogger.error("DB-UPD-TET17-IF-ERR", f"Errore DB durante UPDATE massivo ADCTET17 a 'IF': {err}", depth=depth)
+
+            ctx.indic_errore = "X"
+            return -1

@@ -6,7 +6,7 @@ from .context import FormazioneRuoliContext
 from .step_stato_formazione import StatoFormazioneStep
 from .step_ripartenze import GestioneRipartenzeStep
 from .steps import ElaborazioneCurjoi1Step
-from .step_key_uguale import CicloDettaglioKeyUStep
+from .step_statistiche import StatisticheStep
 from .step_operazioni_finali import OperazioniFinaliStep
 
 

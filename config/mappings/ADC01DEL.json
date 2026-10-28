@@ -1,0 +1,42 @@
+{
+  "table": {
+    "db2": "DTPT03.ADC01DEL",
+    "sqlserver": "ADC01DEL"
+  },
+  "columns": {
+    "gestione": {
+      "db2": "CGES",
+      "sqlserver": "Gestione",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codiceAtto": {
+      "db2": "CATT",
+      "sqlserver": "CodiceAtto",
+      "logical_type": "string",
+      "padding": true
+    },
+    "timestampIns": {
+      "db2": "TMS_INS",
+      "sqlserver": "TmpIns",
+      "logical_type": "datetime"
+    },
+    "timestampDel": {
+      "db2": "TMS_DEL",
+      "sqlserver": "TmpDel",
+      "logical_type": "datetime"
+    },
+    "idAvvGest": {
+      "db2": "ID_GEST",
+      "sqlserver": "IdAvvGest",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codDipendente": {
+      "db2": "CDIP",
+      "sqlserver": "CodDipendente",
+      "logical_type": "string",
+      "padding": true
+    }
+  }
+}

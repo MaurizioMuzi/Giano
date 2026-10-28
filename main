@@ -1,0 +1,73 @@
+@echo off
+REM ==============================================================================
+REM run_batch.bat
+REM Script di avvio per le elaborazioni batch Python (main.py)
+REM Le configurazioni e l'ambiente vengono recuperati dal file JSON esterno.
+REM
+REM Utilizzo: run_batch.bat <operation>
+REM Esempi:
+REM   run_batch.bat PDCFORUO
+REM   run_batch.bat PDCFOAVV
+REM   run_batch.bat PDCPOAVV
+REM   run_batch.bat gestione_avvisi
+REM ==============================================================================
+
+REM 1. Verifica definizione dell'interprete Python
+if not defined PYTHON_HOME311 (
+    echo [ERRORE] La variabile di ambiente PYTHON_HOME311 non e' definita.
+    echo Configura PYTHON_HOME311 con il percorso di Python 3.11 prima dell'esecuzione.
+    echo Esempio: set PYTHON_HOME311=C:\Python311
+    pause
+    exit /b 1
+)
+
+REM 2. Acquisizione dell'operazione da eseguire
+set OPERATION=%1
+
+if "%OPERATION%"=="" (
+    echo [ERRORE] Operazione non specificata.
+    echo.
+    echo Utilizzo: %~nx0 ^<operation^>
+    echo.
+    echo Operazioni ammesse:
+    echo   PDCFOAVV           - Formazione Avviso
+    echo   PDCPOAVV           - Preparazione Postalizzazione
+    echo   PDCFORUO           - Formazione Ruoli
+    echo   PDCFRCRE           - Firma Ruoli
+    echo   PDCINCRE           - Invio Ruoli AdER
+    echo   gestione_avvisi    - Workflow completo sequenziale
+    echo.
+    pause
+    exit /b 1
+)
+
+echo ==============================================================================
+echo AVVIO ELABORAZIONE BATCH
+echo ==============================================================================
+echo Operazione: %OPERATION%
+echo Python    : %PYTHON_HOME311%\python.exe
+echo ==============================================================================
+
+REM 3. Posizionamento nella directory del file batch/progetto
+cd /d "%~dp0"
+
+REM 4. Esecuzione dello script orchestratore main.py
+"%PYTHON_HOME311%\python.exe" main.py "%OPERATION%"
+
+set EXIT_CODE=%errorlevel%
+
+REM 5. Verifica esito dell'elaborazione
+echo.
+if %EXIT_CODE% equ 0 (
+    echo ==============================================================================
+    echo [SUCCESSO] Elaborazione %OPERATION% terminata regolarmente.
+    echo ==============================================================================
+) else (
+    echo ==============================================================================
+    echo [FALLIMENTO] Si e' verificato un errore durante l'elaborazione.
+    echo Codice di uscita (exit code): %EXIT_CODE%
+    echo ==============================================================================
+)
+
+pause
+exit /b %EXIT_CODE%

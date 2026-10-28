@@ -1,4 +1,5 @@
 # processes/formazione_avviso/step_tab14_cfis.py
+from typing import List, Any, Iterator
 from core.batch_logger import BatchLogger
 from .context import FormazioneAvvisoContext
 
@@ -13,6 +14,7 @@ class CicloDettaglioTab14Step:
     def __init__(self, engine):
         self.engine = engine
 
+
     def execute_dettaglio(self, ctx: FormazioneAvvisoContext, record_master: dict, depth: int = 5) -> None:
         t01_map = self.engine.get_table_map("ADCFRT01")
         t14_map = self.engine.get_table_map("ADCFRT14")
@@ -26,102 +28,148 @@ class CicloDettaglioTab14Step:
         ws_cap = (record_master.get("capAnagrafeTrib") or "").strip()
         ws_localita = (record_master.get("locAnagrafeTrib") or "").strip()
 
-        query_dett = (
-            self.engine.dataset("ADCFRT01")
-            .join(t14_map, alias_self="A", alias_target="B")
-            .on("gestione", "gestione")
-            .on("codiceAtto", "codiceAtto")
-            .select("gestione", "codiceAtto")
-            .select_joined(
-                "cognome", "nome", "indAnagrafeTrib",
-                "siglaProvAnagrafeTrib", "comuneAnagrafeTrib", "capAnagrafeTrib", "locAnagrafeTrib"
-            )
-            .filter_by("codiceFiscale", "=", ctx.ws_cfis)
-            .filter_by("dataInf", ">=", ctx.diniinf)
-            .filter_by("dataInf", "<=", ctx.dfininf)
-            .filter_by("statoAttivita", "=", "0I")
-            .filter_by_joined("codiceAnag", "=", "I")
-            .order_by_desc("timestampInsStato")
-            .with_uncommitted_read()
-            .compile_select()
-        )
-
         records_aggiornati = 0
 
-        for chunk in self.engine.cursor_stream(query_dett, buffer_size=500, depth=depth):
-            for raw_row in chunk:
-                if getattr(ctx, "scarto_t14", False):
-                    BatchLogger.warn("UNTIL-T14", "Interruzione ciclo: condizione SCARTO-T14 rilevata", depth=depth + 1)
-                    return
+        try:
+            for chunk in self._db_stream_dettaglio_t14(ctx, t14_map, depth=depth):
+                for raw_row in chunk:
+                    if getattr(ctx, "scarto_t14", False):
+                        BatchLogger.warn("UNTIL-T14", "Interruzione ciclo: condizione SCARTO-T14 rilevata", depth=depth + 1)
+                        return
 
-                row_t14 = t14_map.normalize(raw_row)
-                row_t01 = t01_map.normalize(raw_row)
+                    row_t14 = t14_map.normalize(raw_row)
+                    row_t01 = t01_map.normalize(raw_row)
 
-                # Dati del record corrente su CDCFRT14
-                scog = (row_t14.get("cognome") or "").strip()
-                snom = (row_t14.get("nome") or "").strip()
-                sindatr = (row_t14.get("indAnagrafeTrib") or "").strip()
-                cproatr = (row_t14.get("siglaProvAnagrafeTrib") or "").strip()
-                ccomatr = (row_t14.get("comuneAnagrafeTrib") or "").strip()
-                ccapatr = (row_t14.get("capAnagrafeTrib") or "").strip()
-                slocatr = (row_t14.get("locAnagrafeTrib") or "").strip()
+                    # Dati del record corrente su CDCFRT14
+                    scog = (row_t14.get("cognome") or "").strip()
+                    snom = (row_t14.get("nome") or "").strip()
+                    sindatr = (row_t14.get("indAnagrafeTrib") or "").strip()
+                    cproatr = (row_t14.get("siglaProvAnagrafeTrib") or "").strip()
+                    ccomatr = (row_t14.get("comuneAnagrafeTrib") or "").strip()
+                    ccapatr = (row_t14.get("capAnagrafeTrib") or "").strip()
+                    slocatr = (row_t14.get("locAnagrafeTrib") or "").strip()
 
-                # Condizione di congruenza: dati identici al master
-                indirizzo_uguale = (
-                    ws_cognome == scog and
-                    ws_nome == snom and
-                    ws_indirizzo == sindatr and
-                    ws_provincia == cproatr and
-                    ws_codcomune == ccomatr and
-                    ws_cap == ccapatr and
-                    ws_localita == slocatr
-                )
+                    # Condizione di congruenza: dati identici al master
+                    indirizzo_uguale = (
+                        ws_cognome == scog and
+                        ws_nome == snom and
+                        ws_indirizzo == sindatr and
+                        ws_provincia == cproatr and
+                        ws_codcomune == ccomatr and
+                        ws_cap == ccapatr and
+                        ws_localita == slocatr
+                    )
 
-                if indirizzo_uguale:
-                    BatchLogger.info(
-                        "UNTIL-T14",
-                        f"Atto CATT={row_t01.get('codiceAtto')}: recapito già conforme al master -> ciclo interrotto",
+                    if indirizzo_uguale:
+                        BatchLogger.info(
+                            "UNTIL-T14",
+                            f"Atto CATT={row_t01.get('codiceAtto')}: recapito già conforme al master -> ciclo interrotto",
+                            depth=depth + 1
+                        )
+                        return
+
+                    # AGGIORNA-T14 THRU AGGIORNA-T14-EX
+                    self._db_update_t14(
+                        cges=row_t01.get("gestione"),
+                        catt=row_t01.get("codiceAtto"),
+                        scog=ws_cognome,
+                        snom=ws_nome,
+                        sindatr=ws_indirizzo,
+                        cproatr=ws_provincia,
+                        ccomatr=ws_codcomune,
+                        ccapatr=ws_cap,
+                        slocatr=ws_localita,
                         depth=depth + 1
                     )
-                    return
+                    records_aggiornati += 1
 
-                # AGGIORNA-T14 THRU AGGIORNA-T14-EX
-                self._aggiorna_t14(
-                    cges=row_t01.get("gestione"),
-                    catt=row_t01.get("codiceAtto"),
-                    scog=ws_cognome,
-                    snom=ws_nome,
-                    sindatr=ws_indirizzo,
-                    cproatr=ws_provincia,
-                    ccomatr=ws_codcomune,
-                    ccapatr=ws_cap,
-                    slocatr=ws_localita,
-                    depth=depth + 1
+            BatchLogger.info("FINE-CICLO-T14", f"Elaborazione dettaglio completata. Record rettificati: {records_aggiornati}", depth=depth)
+
+        except Exception as err:
+            BatchLogger.error(
+                "CICLO-DETTAGLIO-T14",
+                f"Errore critico durante l'elaborazione di dettaglio per CF {ctx.ws_cfis}: {err}",
+                depth=depth
+            )
+            if hasattr(self.engine, "rollback"):
+                try:
+                    self.engine.rollback()
+                    BatchLogger.warn("CICLO-DETTAGLIO-T14", "Rollback transazionale eseguito a fronte del fallimento", depth=depth)
+                except Exception as rollback_err:
+                    BatchLogger.error("CICLO-DETTAGLIO-T14", f"Fallito il rollback: {rollback_err}", depth=depth)
+
+            ctx.indic_errore = "X"
+            return -1
+
+
+    # =========================================================================
+    # ACCESSI AL DATABASE (ISOLATI CON TRY-EXCEPT PUNTUALI)
+    # =========================================================================
+    def _db_stream_dettaglio_t14(self, ctx: FormazioneAvvisoContext, t14_map: Any, depth: int) -> Iterator[List[Any]]:
+        """Accesso atomico DB: apertura cursore in streaming di scansione dettaglio partite per CF."""
+        try:
+            query_dett = (
+                self.engine.dataset("ADCFRT01")
+                .join(t14_map, alias_self="A", alias_target="B")
+                .on("gestione", "gestione")
+                .on("codiceAtto", "codiceAtto")
+                .select("gestione", "codiceAtto")
+                .select_joined(
+                    "cognome", "nome", "indAnagrafeTrib",
+                    "siglaProvAnagrafeTrib", "comuneAnagrafeTrib", "capAnagrafeTrib", "locAnagrafeTrib"
                 )
-                records_aggiornati += 1
+                .filter_by("codiceFiscale", "=", ctx.ws_cfis)
+                .filter_by("dataInf", ">=", ctx.diniinf)
+                .filter_by("dataInf", "<=", ctx.dfininf)
+                .filter_by("statoAttivita", "=", "0I")
+                .filter_by_joined("codiceAnag", "=", "I")
+                .order_by_desc("timestampInsStato")
+                .with_uncommitted_read()
+                .compile_select()
+            )
+            return self.engine.cursor_stream(query_dett, buffer_size=500, depth=depth)
+        except Exception as err:
+            BatchLogger.error(
+                "DB-STREAM-DETT-T14-ERR",
+                f"Errore DB durante l'apertura cursore dettaglio T14 per CF {ctx.ws_cfis}: {err}",
+                depth=depth
+            )
 
-        BatchLogger.info("FINE-CICLO-T14", f"Elaborazione dettaglio completata. Record rettificati: {records_aggiornati}", depth=depth)
+            ctx.indic_errore = "X"
+            return -1
 
-    def _aggiorna_t14(self, cges: str, catt: str, scog: str, snom: str, sindatr: str,
-                      cproatr: str, ccomatr: str, ccapatr: str, slocatr: str, depth: int) -> None:
-        """Esegue il paragrafo AGGIORNA-T14 su CDCFRT14."""
-        upd = (
-            self.engine.dataset("ADCFRT14")
-            .filter_by("gestione", "=", cges)
-            .filter_by("codiceAtto", "=", catt)
-            .filter_by("codiceAnag", "=", "I")
-            .compile_update({
-                "cognome": scog,
-                "nome": snom,
-                "indAnagrafeTrib": sindatr,
-                "siglaProvAnagrafeTrib": cproatr,
-                "comuneAnagrafeTrib": ccomatr,
-                "capAnagrafeTrib": ccapatr,
-                "locAnagrafeTrib": slocatr
-            })
-        )
-        righe = self.engine.execute_mutation(upd, depth=depth)
-        BatchLogger.info("AGGIORNA-T14", f"UPDATE CDCFRT14 CATT={catt} -> Righe impattate: {righe}", depth=depth)
+
+    def _db_update_t14(self, cges: str, catt: str, scog: str, snom: str, sindatr: str,
+                       cproatr: str, ccomatr: str, ccapatr: str, slocatr: str, depth: int) -> int:
+        """Accesso atomico DB: aggiornamento anagrafica recapito su ADCFRT14."""
+        try:
+            upd = (
+                self.engine.dataset("ADCFRT14")
+                .filter_by("gestione", "=", cges)
+                .filter_by("codiceAtto", "=", catt)
+                .filter_by("codiceAnag", "=", "I")
+                .compile_update({
+                    "cognome": scog,
+                    "nome": snom,
+                    "indAnagrafeTrib": sindatr,
+                    "siglaProvAnagrafeTrib": cproatr,
+                    "comuneAnagrafeTrib": ccomatr,
+                    "capAnagrafeTrib": ccapatr,
+                    "locAnagrafeTrib": slocatr
+                })
+            )
+            righe = self.engine.execute_mutation(upd, depth=depth)
+            BatchLogger.info("AGGIORNA-T14", f"UPDATE CDCFRT14 CATT={catt} -> Righe impattate: {righe}", depth=depth)
+            return righe
+        except Exception as err:
+            BatchLogger.error(
+                "DB-UPD-T14-ERR",
+                f"Errore DB durante l'UPDATE su ADCFRT14 [CGES={cges}, CATT={catt}]: {err}",
+                depth=depth
+            )
+
+            ctx.indic_errore = "X"
+            return -1
 
 
 class AllineamentoAnagrafeStep:
@@ -134,47 +182,82 @@ class AllineamentoAnagrafeStep:
         self.engine = engine
         self.step_dettaglio = CicloDettaglioTab14Step(engine)
 
+
     def execute_allineamento(self, ctx: FormazioneAvvisoContext, depth: int = 4) -> None:
         BatchLogger.info("ALLINEA-INDIRIZZO", f"Verifica recapito anagrafico per CF: {ctx.ws_cfis}", depth=depth)
         t01_map = self.engine.get_table_map("ADCFRT01")
         t14_map = self.engine.get_table_map("ADCFRT14")
 
-        # Selezione dell'avviso master cronologicamente più recente (FETCH FIRST 1 ROW ONLY)
-        query_master = (
-            self.engine.dataset("ADCFRT01")
-            .join(t14_map, alias_self="A", alias_target="B")
-            .on("gestione", "gestione")
-            .on("codiceAtto", "codiceAtto")
-            .select_joined(
-                "cognome", "nome", "indAnagrafeTrib",
-                "siglaProvAnagrafeTrib", "comuneAnagrafeTrib", "capAnagrafeTrib", "locAnagrafeTrib"
+        try:
+            # Selezione dell'avviso master cronologicamente più recente (FETCH FIRST 1 ROW ONLY)
+            rows = self._db_fetch_master_cfis(ctx, t14_map, depth=depth)
+            if not rows:
+                BatchLogger.warn("MASTER-T14", "Nessun record anagrafico master individuato su CDCFRT14", depth=depth)
+                return
+
+            raw_master = rows[0]
+            master_row = {**t14_map.normalize(raw_master), **t01_map.normalize(raw_master)}
+
+            BatchLogger.info(
+                "MASTER-T14",
+                f"Record Master selezionato: CATT={master_row.get('codiceAtto')} | "
+                f"CGES={master_row.get('gestione')} | DINF={master_row.get('dataInf')} | "
+                f"Nominativo: {master_row.get('cognome')} {master_row.get('nome')}",
+                depth=depth + 1
             )
-            .filter_by("codiceFiscale", "=", ctx.ws_cfis)
-            .filter_by("dataInf", ">=", ctx.diniinf)
-            .filter_by("dataInf", "<=", ctx.dfininf)
-            .filter_by("statoAttivita", "=", "0I")
-            .filter_by_joined("codiceAnag", "=", "I")
-            .order_by_desc("timestampInsStato")
-            .limit(1)
-            .with_uncommitted_read()
-            .compile_select()
-        )
 
-        rows = self.engine.fetch(query_master, depth=depth)
-        if not rows:
-            BatchLogger.warn("MASTER-T14", "Nessun record anagrafico master individuato su CDCFRT14", depth=depth)
-            return
+            # Invocazione del ciclo di rettifica sui record di dettaglio
+            self.step_dettaglio.execute_dettaglio(ctx, master_row, depth=depth + 1)
 
-        raw_master = rows[0]
-        master_row = {**t14_map.normalize(raw_master), **t01_map.normalize(raw_master)}
+        except Exception as err:
+            BatchLogger.error(
+                "ALLINEA-INDIRIZZO",
+                f"Errore critico durante l'allineamento anagrafico per CF {ctx.ws_cfis}: {err}",
+                depth=depth
+            )
+            if hasattr(self.engine, "rollback"):
+                try:
+                    self.engine.rollback()
+                    BatchLogger.warn("ALLINEA-INDIRIZZO", "Rollback transazionale eseguito a fronte del fallimento", depth=depth)
+                except Exception as rollback_err:
+                    BatchLogger.error("ALLINEA-INDIRIZZO", f"Fallito il rollback: {rollback_err}", depth=depth)
 
-        BatchLogger.info(
-            "MASTER-T14",
-            f"Record Master selezionato: CATT={master_row.get('codiceAtto')} | "
-            f"CGES={master_row.get('gestione')} | DINF={master_row.get('dataInf')} | "
-            f"Nominativo: {master_row.get('cognome')} {master_row.get('nome')}",
-            depth=depth + 1
-        )
+            ctx.indic_errore = "X"
+            return -1
 
-        # Invocazione del ciclo di rettifica sui record di dettaglio
-        self.step_dettaglio.execute_dettaglio(ctx, master_row, depth=depth + 1)
+
+    # =========================================================================
+    # ACCESSI AL DATABASE (ISOLATI CON TRY-EXCEPT PUNTUALI)
+    # =========================================================================
+    def _db_fetch_master_cfis(self, ctx: FormazioneAvvisoContext, t14_map: Any, depth: int) -> List[Any]:
+        """Accesso atomico DB: recupera il record anagrafico più recente per codice fiscale."""
+        try:
+            query_master = (
+                self.engine.dataset("ADCFRT01")
+                .join(t14_map, alias_self="A", alias_target="B")
+                .on("gestione", "gestione")
+                .on("codiceAtto", "codiceAtto")
+                .select_joined(
+                    "cognome", "nome", "indAnagrafeTrib",
+                    "siglaProvAnagrafeTrib", "comuneAnagrafeTrib", "capAnagrafeTrib", "locAnagrafeTrib"
+                )
+                .filter_by("codiceFiscale", "=", ctx.ws_cfis)
+                .filter_by("dataInf", ">=", ctx.diniinf)
+                .filter_by("dataInf", "<=", ctx.dfininf)
+                .filter_by("statoAttivita", "=", "0I")
+                .filter_by_joined("codiceAnag", "=", "I")
+                .order_by_desc("timestampInsStato")
+                .limit(1)
+                .with_uncommitted_read()
+                .compile_select()
+            )
+            return self.engine.fetch(query_master, depth=depth)
+        except Exception as err:
+            BatchLogger.error(
+                "DB-FETCH-MASTER-CFIS-ERR",
+                f"Errore DB durante la fetch del master anagrafico per CF {ctx.ws_cfis}: {err}",
+                depth=depth
+            )
+
+            ctx.indic_errore = "X"
+            return -1

@@ -1,0 +1,44 @@
+{
+  "table": {
+    "db2": "DTPT03.ADC03DEL",
+    "sqlserver": "ADC03DEL"
+  },
+  "columns": {
+    "codConcessione": {
+      "db2": "CESA",
+      "sqlserver": "CodConcessione",
+      "logical_type": "int"
+    },
+    "acar": {
+      "db2": "ACAR",
+      "sqlserver": "AnnoCartella",
+      "logical_type": "int"
+    },
+    "ncar": {
+      "db2": "NCAR",
+      "sqlserver": "NumCartella",
+      "logical_type": "int"
+    },
+    "cesaavv": {
+      "db2": "CESAAVV",
+      "sqlserver": "CodEsattoriaAvviso",
+      "logical_type": "int"
+    },
+    "tms_ins_csacar": {
+      "db2": "TMS_INS_CSTACAR",
+      "sqlserver": "TimestampInsStato",
+      "logical_type": "datetime"
+    },
+    "cstacar": {
+      "db2": "CSTACAR",
+      "sqlserver": "StatoCartella",
+      "logical_type": "string",
+      "padding": true
+    },
+    "tms_del": {
+      "db2": "TMS_DEL",
+      "sqlserver": "TimestampDelete",
+      "logical_type": "datetime"
+    }
+  }
+}

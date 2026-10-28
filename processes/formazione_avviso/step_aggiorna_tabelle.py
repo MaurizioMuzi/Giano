@@ -1,6 +1,7 @@
 # processes/formazione_avviso/step_aggiorna_tabelle.py
 from datetime import datetime, date
 from decimal import Decimal
+from typing import List, Dict, Any, Iterator
 from core.batch_logger import BatchLogger
 from .context import FormazioneAvvisoContext
 
@@ -20,26 +21,29 @@ class AggiornaTabelleStep:
 
     def __init__(self, engine):
         self.engine = engine
-        # 1. Leggiamo e memorizziamo la soglia una sola volta all'avvio dello step
         self.size_commit = getattr(engine, "size_commit", getattr(engine, "commit_threshold", 1000))
 
-
     def _verifica_e_committa_lotto(self, depth: int) -> None:
-        """Incrementa il contatore globale e fa il commit parziale usando la soglia memorizzata."""
+        """Incrementa il contatore globale e fa il commit parziale usando la soglia configurata."""
         if not hasattr(self.engine, "_record_counter"):
             self.engine._record_counter = 0
 
         self.engine._record_counter += 1
 
-        # 2. Usiamo direttamente la proprietà salvata, senza chiamate ripetute a getattr
         if self.engine._record_counter >= self.size_commit:
             BatchLogger.info(
                 "BATCH-COMMIT",
                 f"Raggiunta la soglia configurata di {self.size_commit} record. Esecuzione COMMIT parziale...",
                 depth=depth
             )
-            self.engine.commit()
-            self.engine._record_counter = 0
+            try:
+                self.engine.commit()
+                self.engine._record_counter = 0
+            except Exception as err:
+                BatchLogger.error("BATCH-COMMIT", f"Errore durante l'esecuzione del COMMIT parziale: {err}", depth=depth)
+
+                ctx.indic_errore = "X"
+                return -1
 
 
     def execute(self, ctx: FormazioneAvvisoContext, depth: int = 4) -> None:
@@ -50,19 +54,19 @@ class AggiornaTabelleStep:
         )
 
         try:
-            # 1) CNTRL-TAB14: Controllo di coerenza o recupero anagrafico finale
+            # (1) CNTRL-TAB14: Controllo di coerenza o recupero anagrafico finale
             self._cntrl_tab14(ctx, depth=depth + 1)
 
-            # 2) CALCOLA-IDENT: Determinazione dell'identificativo avviso (es. codice a barre / IUV / progressivo)
+            # (2) CALCOLA-IDENT: Determinazione dell'identificativo avviso (codice a barre / IUV / progressivo)
             identificativo = self._calcola_ident(ctx, depth=depth + 1)
 
-            # 3, 4, 5) Ciclo CURT01 con aggiornamento a cascata di ADCFRT01 e ADCFRT10
+            # (3, 4, 5) Ciclo CURT01 con aggiornamento a cascata di ADCFRT01 e ADCFRT10
             self._elabora_cursore_curt01(ctx, identificativo, depth=depth + 1)
 
-            # 6) INSERISCI-SPESE: Calcolo e registrazione diritti/spese di notifica
+            # (6) INSERISCI-SPESE: Calcolo e registrazione diritti/spese di notifica
             self._inserisci_spese(ctx, identificativo, depth=depth + 1)
 
-            # 7) INSERISCI-TAB03: Scrittura della testata dell'avviso formato su ADCFRT03
+            # (7) INSERISCI-TAB03: Scrittura della testata dell'avviso formato su ADCFRT03
             self._inserisci_tab03(ctx, identificativo, depth=depth + 1)
 
             BatchLogger.info(
@@ -77,42 +81,28 @@ class AggiornaTabelleStep:
                 f"Errore durante il consolidamento dell'avviso {ctx.ws_annoavv}/{ctx.ws_progavv}: {err}",
                 depth=depth
             )
+            if hasattr(self.engine, "rollback"):
+                try:
+                    self.engine.rollback()
+                    BatchLogger.warn("AGGIORNA-TABELLE", "Rollback transazionale eseguito con successo", depth=depth)
+                except Exception as rollback_err:
+                    BatchLogger.error("AGGIORNA-TABELLE", f"Fallito il rollback: {rollback_err}", depth=depth)
+
             ctx.indic_errore = "X"
             ctx.ws_erravv = "ERR-UPD"
-            raise err
+            return -1
 
-    # -------------------------------------------------------------------------
+
+    # =========================================================================
     # STEP 1: CNTRL-TAB14
-    # -------------------------------------------------------------------------
+    # =========================================================================
     def _cntrl_tab14(self, ctx: FormazioneAvvisoContext, depth: int) -> None:
         BatchLogger.info("STEP-1/7", f"Esecuzione CNTRL-TAB14 a doppio cursore per CF: {ctx.ws_cfis}", depth=depth)
         t01_map = self.engine.get_table_map("ADCFRT01")
         t14_map = self.engine.get_table_map("ADCFRT14")
 
         # CURSORE 1: Recupero record Master cronologicamente più recente
-        query_cur_master = (
-            self.engine.dataset("ADCFRT01")
-            .join(t14_map, alias_self="A", alias_target="B")
-            .on("gestione", "gestione")
-            .on("codiceAtto", "codiceAtto")
-            .select_joined(
-                "cognome", "nome", "indAnagrafeTrib",
-                "siglaProvAnagrafeTrib", "comuneAnagrafeTrib", "capAnagrafeTrib", "locAnagrafeTrib"
-            )
-            .filter_by("gestione", "=", ctx.ws_cges)
-            .filter_by("sede", "=", ctx.ws_sede)
-            .filter_by("zona", "=", ctx.ws_zona)
-            .filter_by("annoAvviso", "=", ctx.ws_annoavv)
-            .filter_by("progAvviso", "=", ctx.ws_progavv)
-            .filter_by("statoAttivita", "=", "0I")
-            .filter_by_joined("codiceAnag", "=", "I")
-            .order_by_desc("timestampInsStato")
-            .limit(1)
-            .with_uncommitted_read()
-            .compile_select()
-        )
-
-        rows_master = self.engine.fetch(query_cur_master, depth=depth + 1)
+        rows_master = self._db_fetch_master_t14(ctx, t14_map, depth=depth + 1)
         if not rows_master:
             BatchLogger.warn("CNTRL-TAB14", "Nessun record master individuato su CDCFRT14", depth=depth + 1)
             return
@@ -140,31 +130,9 @@ class AggiornaTabelleStep:
         )
 
         # CURSORE 2: Scansione di dettaglio di tutti i record per allineamento
-        query_cur_dett = (
-            self.engine.dataset("ADCFRT01")
-            .join(t14_map, alias_self="A", alias_target="B")
-            .on("gestione", "gestione")
-            .on("codiceAtto", "codiceAtto")
-            .select("gestione", "codiceAtto")
-            .select_joined(
-                "cognome", "nome", "indAnagrafeTrib",
-                "siglaProvAnagrafeTrib", "comuneAnagrafeTrib", "capAnagrafeTrib", "locAnagrafeTrib"
-            )
-            .filter_by("gestione", "=", ctx.ws_cges)
-            .filter_by("sede", "=", ctx.ws_sede)
-            .filter_by("zona", "=", ctx.ws_zona)
-            .filter_by("annoAvviso", "=", ctx.ws_annoavv)
-            .filter_by("progAvviso", "=", ctx.ws_progavv)
-            .filter_by("statoAttivita", "=", "0I")
-            .filter_by_joined("codiceAnag", "=", "I")
-            .order_by("timestampInsStato")
-            .with_uncommitted_read()
-            .compile_select()
-        )
-
         records_aggiornati = 0
 
-        for chunk in self.engine.cursor_stream(query_cur_dett, buffer_size=500, depth=depth + 1):
+        for chunk in self._db_stream_dettaglio_t14(ctx, t14_map, depth=depth + 1):
             for raw_row in chunk:
                 if getattr(ctx, "scarto_t14", False):
                     BatchLogger.warn("UNTIL-T14", "Interruzione ciclo: condizione SCARTO-T14 attiva", depth=depth + 2)
@@ -182,19 +150,19 @@ class AggiornaTabelleStep:
                 slocatr = str(row_t14.get("locAnagrafeTrib") or "").strip()
 
                 indirizzo_uguale = (
-                        ws_cognome == scog and
-                        ws_nome == snom and
-                        ws_indirizzo == sindatr and
-                        ws_provincia == cproatr and
-                        ws_codcomune == ccomatr and
-                        ws_cap == ccapatr and
-                        ws_localita == slocatr
+                    ws_cognome == scog and
+                    ws_nome == snom and
+                    ws_indirizzo == sindatr and
+                    ws_provincia == cproatr and
+                    ws_codcomune == ccomatr and
+                    ws_cap == ccapatr and
+                    ws_localita == slocatr
                 )
 
                 if indirizzo_uguale:
                     continue
 
-                self._aggiorna_t14(
+                self._db_update_t14(
                     cges=row_t01.get("gestione"),
                     catt=row_t01.get("codiceAtto"),
                     scog=ws_cognome,
@@ -214,50 +182,108 @@ class AggiornaTabelleStep:
             depth=depth + 1
         )
 
-    def _aggiorna_t14(self, cges: str, catt: str, scog: str, snom: str, sindatr: str,
-                      cproatr: str, ccomatr: str, ccapatr: str, slocatr: str, depth: int) -> None:
-        """Paragrafo AGGIORNA-T14 THRU AGGIORNA-T14-EX su CDCFRT14."""
-        upd = (
-            self.engine.dataset("ADCFRT14")
-            .filter_by("gestione", "=", cges)
-            .filter_by("codiceAtto", "=", catt)
-            .filter_by("codiceAnag", "=", "I")
-            .compile_update({
-                "cognome": scog,
-                "nome": snom,
-                "indAnagrafeTrib": sindatr,
-                "siglaProvAnagrafeTrib": cproatr,
-                "comuneAnagrafeTrib": ccomatr,
-                "capAnagrafeTrib": ccapatr,
-                "locAnagrafeTrib": slocatr
-            })
-        )
-        righe = self.engine.execute_mutation(upd, depth=depth)
-        BatchLogger.debug("AGGIORNA-T14", f"UPDATE CDCFRT14 CATT={catt} -> Righe impattate: {righe}", depth=depth)
+    def _db_fetch_master_t14(self, ctx: FormazioneAvvisoContext, t14_map: Any, depth: int) -> List[Any]:
+        try:
+            query = (
+                self.engine.dataset("ADCFRT01")
+                .join(t14_map, alias_self="A", alias_target="B")
+                .on("gestione", "gestione")
+                .on("codiceAtto", "codiceAtto")
+                .select_joined(
+                    "cognome", "nome", "indAnagrafeTrib",
+                    "siglaProvAnagrafeTrib", "comuneAnagrafeTrib", "capAnagrafeTrib", "locAnagrafeTrib"
+                )
+                .filter_by("gestione", "=", ctx.ws_cges)
+                .filter_by("sede", "=", ctx.ws_sede)
+                .filter_by("zona", "=", ctx.ws_zona)
+                .filter_by("annoAvviso", "=", ctx.ws_annoavv)
+                .filter_by("progAvviso", "=", ctx.ws_progavv)
+                .filter_by("statoAttivita", "=", "0I")
+                .filter_by_joined("codiceAnag", "=", "I")
+                .order_by_desc("timestampInsStato")
+                .limit(1)
+                .with_uncommitted_read()
+                .compile_select()
+            )
+            return self.engine.fetch(query, depth=depth)
+        except Exception as err:
+            BatchLogger.error("DB-FETCH-MASTER-T14", f"Errore recupero master T14 per avviso {ctx.ws_annoavv}/{ctx.ws_progavv}: {err}", depth=depth)
 
-    # -------------------------------------------------------------------------
+            ctx.indic_errore = "X"
+            return -1
+
+
+    def _db_stream_dettaglio_t14(self, ctx: FormazioneAvvisoContext, t14_map: Any, depth: int) -> Iterator[List[Any]]:
+        try:
+            query = (
+                self.engine.dataset("ADCFRT01")
+                .join(t14_map, alias_self="A", alias_target="B")
+                .on("gestione", "gestione")
+                .on("codiceAtto", "codiceAtto")
+                .select("gestione", "codiceAtto")
+                .select_joined(
+                    "cognome", "nome", "indAnagrafeTrib",
+                    "siglaProvAnagrafeTrib", "comuneAnagrafeTrib", "capAnagrafeTrib", "locAnagrafeTrib"
+                )
+                .filter_by("gestione", "=", ctx.ws_cges)
+                .filter_by("sede", "=", ctx.ws_sede)
+                .filter_by("zona", "=", ctx.ws_zona)
+                .filter_by("annoAvviso", "=", ctx.ws_annoavv)
+                .filter_by("progAvviso", "=", ctx.ws_progavv)
+                .filter_by("statoAttivita", "=", "0I")
+                .filter_by_joined("codiceAnag", "=", "I")
+                .order_by("timestampInsStato")
+                .with_uncommitted_read()
+                .compile_select()
+            )
+            return self.engine.cursor_stream(query, buffer_size=500, depth=depth)
+        except Exception as err:
+            BatchLogger.error("DB-STREAM-T14", f"Errore apertura cursore dettaglio T14 per avviso {ctx.ws_annoavv}/{ctx.ws_progavv}: {err}", depth=depth)
+
+            ctx.indic_errore = "X"
+            return -1
+
+
+    def _db_update_t14(self, cges: str, catt: str, scog: str, snom: str, sindatr: str,
+                       cproatr: str, ccomatr: str, ccapatr: str, slocatr: str, depth: int) -> int:
+        try:
+            upd = (
+                self.engine.dataset("ADCFRT14")
+                .filter_by("gestione", "=", cges)
+                .filter_by("codiceAtto", "=", catt)
+                .filter_by("codiceAnag", "=", "I")
+                .compile_update({
+                    "cognome": scog,
+                    "nome": snom,
+                    "indAnagrafeTrib": sindatr,
+                    "siglaProvAnagrafeTrib": cproatr,
+                    "comuneAnagrafeTrib": ccomatr,
+                    "capAnagrafeTrib": ccapatr,
+                    "locAnagrafeTrib": slocatr
+                })
+            )
+            righe = self.engine.execute_mutation(upd, depth=depth)
+            BatchLogger.debug("AGGIORNA-T14", f"UPDATE CDCFRT14 CATT={catt} -> Righe impattate: {righe}", depth=depth)
+            return righe
+        except Exception as err:
+            BatchLogger.error("DB-UPD-T14", f"Errore UPDATE ADCFRT14 per CGES={cges}, CATT={catt}: {err}", depth=depth)
+
+            ctx.indic_errore = "X"
+            return -1
+
+
+    # =========================================================================
     # STEP 2: CALCOLA-IDENT
-    # -------------------------------------------------------------------------
+    # =========================================================================
     def _calcola_ident(self, ctx: FormazioneAvvisoContext, depth: int) -> str:
         BatchLogger.info("STEP-2/7", "Calcolo identificativo univoco avviso (CALCOLA-IDENT)", depth=depth)
 
         cod_comune = getattr(ctx, "ws_codcomune", "")
         t02_map = self.engine.get_table_map("ADCAVV02")
 
-        query_cesa = (
-            self.engine.dataset("ADCAVV02")
-            .select("codConcessione")
-            .filter_by("codBelfiore", "=", cod_comune)
-            .filter_by("flgValidita", "=", "0")
-            .with_uncommitted_read()
-            .limit(1)
-            .compile_select()
-        )
-
-        rows = self.engine.fetch(query_cesa, depth=depth)
-
-        if rows:
-            row_t02 = t02_map.normalize(rows[0])
+        rows_cesa = self._db_fetch_concessione_belfiore(cod_comune, depth=depth)
+        if rows_cesa:
+            row_t02 = t02_map.normalize(rows_cesa[0])
             ws_cesanew = str(row_t02.get("codConcessione") or "").strip()
         else:
             ws_cesanew = ""
@@ -268,52 +294,24 @@ class AggiornaTabelleStep:
         ctx.ws_cesa = str(cesa_base)
         ctx.ws_cesaavv = str(cesa_avviso)
 
-        upd_t01 = (
-            self.engine.dataset("ADCFRT01")
-            .filter_by("gestione", "=", ctx.ws_cges)
-            .filter_by("sede", "=", ctx.ws_sede)
-            .filter_by("zona", "=", ctx.ws_zona)
-            .filter_by("annoAvviso", "=", ctx.ws_annoavv)
-            .filter_by("progAvviso", "=", ctx.ws_progavv)
-            .compile_update({
-                "codEsattoria": str(ctx.ws_cesa),
-                "codEsattoriaAvviso": str(ctx.ws_cesaavv)
-            })
-        )
-
-        righe_impattate = self.engine.execute_mutation(upd_t01, depth=depth)
-        BatchLogger.info(
-            "UPD-T01",
-            f"Aggiornamento CESA/CESAAVV su ADCFRT01 per avviso {ctx.ws_annoavv}/{ctx.ws_progavv} -> Righe impattate: {righe_impattate}",
-            depth=depth
-        )
+        self._db_update_t01_cesa(ctx, depth=depth)
 
         ws_annoruo_dec = str(ctx.dcon.year) if hasattr(ctx.dcon, "year") else str(ctx.dcon or "")[:4]
         t_avv01_map = self.engine.get_table_map("ADCAVV01")
 
-        query_v01 = (
-            self.engine.dataset("ADCAVV01")
-            .select("progAvviso")
-            .filter_by("codConcessione", "=", str(ctx.ws_cesaavv))
-            .filter_by("annoAvviso", "=", str(ws_annoruo_dec))
-            .with_uncommitted_read()
-            .limit(1)
-            .compile_select()
-        )
-
         try:
-            rows = self.engine.fetch(query_v01, depth=depth)
+            rows_v01 = self._db_fetch_prog_avv01(str(ctx.ws_cesaavv), str(ws_annoruo_dec), depth=depth)
 
-            if not rows:
+            if not rows_v01:
                 BatchLogger.info(
                     "CALCOLA-IDENT",
                     f"Record ADCAVV01 assente per CESAAVV={ctx.ws_cesaavv}, ANNO={ws_annoruo_dec}. Inserimento nuovo progressivo.",
                     depth=depth
                 )
-                self._inserisci_avv01(ctx, ws_annoruo_dec, depth=depth + 1)
+                self._db_insert_avv01(str(ctx.ws_cesaavv), str(ws_annoruo_dec), depth=depth + 1)
                 ctx.ws_nprgruo_dec = 0
             else:
-                row_avv01 = t_avv01_map.normalize(rows[0])
+                row_avv01 = t_avv01_map.normalize(rows_v01[0])
                 ctx.ws_nprgruo_dec = int(row_avv01.get("progAvviso") or 0)
                 BatchLogger.debug(
                     "CALCOLA-IDENT",
@@ -335,7 +333,7 @@ class AggiornaTabelleStep:
             ctx.ws_nchkruo = str(ws_resto).zfill(2)
             ctx.ws_soggruo = "000"
 
-            self._aggiorna_avv01(ctx, ws_annoruo_dec, depth=depth + 1)
+            self._db_update_prog_avv01(str(ctx.ws_cesaavv), str(ws_annoruo_dec), ctx.ws_nprgruo_dec, depth=depth + 1)
 
             identificativo_completo = f"{pri15ruo_str}{ctx.ws_nchkruo}{ctx.ws_soggruo}"
             ctx.ws_idavvruo = identificativo_completo[:20]
@@ -357,59 +355,127 @@ class AggiornaTabelleStep:
             ctx.ws_erravv = "EXX001"
             raise err
 
-    def _inserisci_avv01(self, ctx: FormazioneAvvisoContext, anno_avviso: str, depth: int) -> None:
-        ins_avv01 = self.engine.dataset("ADCAVV01").compile_insert({
-            "codConcessione": str(ctx.ws_cesaavv),
-            "annoAvviso": str(anno_avviso),
-            "progAvviso": 0,
-            "timestampUpd": datetime.now()
-        })
-        righe = self.engine.execute_mutation(ins_avv01, depth=depth)
-        BatchLogger.info(
-            "INSERISCI-AVV01",
-            f"Nuovo progressivo censito su ADCAVV01 (CESAAVV={ctx.ws_cesaavv}, ANNO={anno_avviso}, PROG=0, righe: {righe})",
-            depth=depth
-        )
+    def _db_fetch_concessione_belfiore(self, cod_comune: str, depth: int) -> List[Any]:
+        try:
+            query = (
+                self.engine.dataset("ADCAVV02")
+                .select("codConcessione")
+                .filter_by("codBelfiore", "=", cod_comune)
+                .filter_by("flgValidita", "=", "0")
+                .with_uncommitted_read()
+                .limit(1)
+                .compile_select()
+            )
+            return self.engine.fetch(query, depth=depth)
+        except Exception as err:
+            BatchLogger.error("DB-FETCH-AVV02", f"Errore recupero concessione per Belfiore={cod_comune}: {err}", depth=depth)
 
-    def _aggiorna_avv01(self, ctx: FormazioneAvvisoContext, anno_avviso: str, depth: int) -> None:
-        agg_avv01 = (
-            self.engine.dataset("ADCAVV01")
-            .filter_by("codConcessione", "=", str(ctx.ws_cesaavv))
-            .filter_by("annoAvviso", "=", str(anno_avviso))
-            .compile_update({
-                "progAvviso": ctx.ws_nprgruo_dec,
+            ctx.indic_errore = "X"
+            return -1
+
+
+    def _db_update_t01_cesa(self, ctx: FormazioneAvvisoContext, depth: int) -> int:
+        try:
+            upd = (
+                self.engine.dataset("ADCFRT01")
+                .filter_by("gestione", "=", ctx.ws_cges)
+                .filter_by("sede", "=", ctx.ws_sede)
+                .filter_by("zona", "=", ctx.ws_zona)
+                .filter_by("annoAvviso", "=", ctx.ws_annoavv)
+                .filter_by("progAvviso", "=", ctx.ws_progavv)
+                .compile_update({
+                    "codEsattoria": str(ctx.ws_cesa),
+                    "codEsattoriaAvviso": str(ctx.ws_cesaavv)
+                })
+            )
+            righe = self.engine.execute_mutation(upd, depth=depth)
+            BatchLogger.info(
+                "UPD-T01",
+                f"Aggiornamento CESA/CESAAVV su ADCFRT01 per avviso {ctx.ws_annoavv}/{ctx.ws_progavv} -> Righe: {righe}",
+                depth=depth
+            )
+            return righe
+        except Exception as err:
+            BatchLogger.error("DB-UPD-T01-CESA", f"Errore UPDATE CESA su ADCFRT01 per avviso {ctx.ws_annoavv}/{ctx.ws_progavv}: {err}", depth=depth)
+
+            ctx.indic_errore = "X"
+            return -1
+
+
+    def _db_fetch_prog_avv01(self, cod_concessione: str, anno_avviso: str, depth: int) -> List[Any]:
+        try:
+            query = (
+                self.engine.dataset("ADCAVV01")
+                .select("progAvviso")
+                .filter_by("codConcessione", "=", cod_concessione)
+                .filter_by("annoAvviso", "=", anno_avviso)
+                .with_uncommitted_read()
+                .limit(1)
+                .compile_select()
+            )
+            return self.engine.fetch(query, depth=depth)
+        except Exception as err:
+            BatchLogger.error("DB-FETCH-AVV01", f"Errore lettura progressivo ADCAVV01 [CESA={cod_concessione}, ANNO={anno_avviso}]: {err}", depth=depth)
+
+            ctx.indic_errore = "X"
+            return -1
+
+
+    def _db_insert_avv01(self, cod_concessione: str, anno_avviso: str, depth: int) -> int:
+        try:
+            ins = self.engine.dataset("ADCAVV01").compile_insert({
+                "codConcessione": cod_concessione,
+                "annoAvviso": anno_avviso,
+                "progAvviso": 0,
                 "timestampUpd": datetime.now()
             })
-        )
-        righe_modificate = self.engine.execute_mutation(agg_avv01, depth=depth)
-        BatchLogger.info(
-            "UPD-AVV01",
-            f"UPDATE ADCAVV01 eseguito per CESAAVV={ctx.ws_cesaavv} ANNO={anno_avviso} -> Nuovo PROG={ctx.ws_nprgruo_dec} (Righe: {righe_modificate})",
-            depth=depth
-        )
+            righe = self.engine.execute_mutation(ins, depth=depth)
+            BatchLogger.info(
+                "INSERISCI-AVV01",
+                f"Nuovo progressivo censito su ADCAVV01 (CESAAVV={cod_concessione}, ANNO={anno_avviso}, PROG=0, righe: {righe})",
+                depth=depth
+            )
+            return righe
+        except Exception as err:
+            BatchLogger.error("DB-INS-AVV01", f"Errore inserimento iniziale ADCAVV01 [CESA={cod_concessione}, ANNO={anno_avviso}]: {err}", depth=depth)
 
-    # -------------------------------------------------------------------------
+            ctx.indic_errore = "X"
+            return -1
+
+
+    def _db_update_prog_avv01(self, cod_concessione: str, anno_avviso: str, nuovo_prog: int, depth: int) -> int:
+        try:
+            upd = (
+                self.engine.dataset("ADCAVV01")
+                .filter_by("codConcessione", "=", cod_concessione)
+                .filter_by("annoAvviso", "=", anno_avviso)
+                .compile_update({
+                    "progAvviso": nuovo_prog,
+                    "timestampUpd": datetime.now()
+                })
+            )
+            righe = self.engine.execute_mutation(upd, depth=depth)
+            BatchLogger.info(
+                "UPD-AVV01",
+                f"UPDATE ADCAVV01 per CESAAVV={cod_concessione} ANNO={anno_avviso} -> Nuovo PROG={nuovo_prog} (Righe: {righe})",
+                depth=depth
+            )
+            return righe
+        except Exception as err:
+            BatchLogger.error("DB-UPD-AVV01", f"Errore UPDATE ADCAVV01 [CESA={cod_concessione}, ANNO={anno_avviso}, PROG={nuovo_prog}]: {err}", depth=depth)
+
+            ctx.indic_errore = "X"
+            return -1
+
+
+    # =========================================================================
     # STEP 3, 4, 5: Cursore CURT01, AGGIORNA-TAB01, AGGIORNA-TAB10
-    # -------------------------------------------------------------------------
+    # =========================================================================
     def _elabora_cursore_curt01(self, ctx: FormazioneAvvisoContext, identificativo: str, depth: int) -> None:
         BatchLogger.info("STEP-3/7", "Apertura cursore CURT01 per aggiornamento partite/articoli", depth=depth)
         t01_map = self.engine.get_table_map("ADCFRT01")
 
-        query_curt01 = (
-            self.engine.dataset("ADCFRT01")
-            .select("gestione", "codiceAtto", "statoAttivita", "codEsattoria")
-            .filter_by("gestione", "=", ctx.ws_cges)
-            .filter_by("sede", "=", ctx.ws_sede)
-            .filter_by("zona", "=", ctx.ws_zona)
-            .filter_by("annoAvviso", "=", ctx.ws_annoavv)
-            .filter_by("progAvviso", "=", ctx.ws_progavv)
-            .filter_by("statoAttivita", "=", "0I")
-            .order_by("gestione", "annoAvviso", "progAvviso", "numEspAvviso")
-            .with_uncommitted_read()
-            .compile_select()
-        )
-
-        stream = self.engine.cursor_stream(query_curt01, buffer_size=500, depth=depth)
+        stream = self._db_stream_curt01(ctx, depth=depth)
         record_iterator = (row for chunk in stream for row in chunk)
 
         try:
@@ -428,6 +494,29 @@ class AggiornaTabelleStep:
                 break
             self._elabora_singola_partita_curt01(ctx, t01_map.normalize(raw_row), identificativo, depth=depth + 1)
 
+    def _db_stream_curt01(self, ctx: FormazioneAvvisoContext, depth: int) -> Iterator[List[Any]]:
+        try:
+            query = (
+                self.engine.dataset("ADCFRT01")
+                .select("gestione", "codiceAtto", "statoAttivita", "codEsattoria")
+                .filter_by("gestione", "=", ctx.ws_cges)
+                .filter_by("sede", "=", ctx.ws_sede)
+                .filter_by("zona", "=", ctx.ws_zona)
+                .filter_by("annoAvviso", "=", ctx.ws_annoavv)
+                .filter_by("progAvviso", "=", ctx.ws_progavv)
+                .filter_by("statoAttivita", "=", "0I")
+                .order_by("gestione", "annoAvviso", "progAvviso", "numEspAvviso")
+                .with_uncommitted_read()
+                .compile_select()
+            )
+            return self.engine.cursor_stream(query, buffer_size=500, depth=depth)
+        except Exception as err:
+            BatchLogger.error("DB-STREAM-CURT01", f"Errore apertura cursore CURT01 per avviso {ctx.ws_annoavv}/{ctx.ws_progavv}: {err}", depth=depth)
+
+            ctx.indic_errore = "X"
+            return -1
+
+
     def _elabora_singola_partita_curt01(self, ctx: FormazioneAvvisoContext, row_t01: dict, identificativo: str,
                                         depth: int) -> None:
         cges = row_t01.get("gestione")
@@ -443,54 +532,48 @@ class AggiornaTabelleStep:
             depth=depth
         )
 
-        # 4) STEP-4/7: AGGIORNA-TAB01 (Aggiornamento stato partita testata a '0G')
-        BatchLogger.info("STEP-4/7", f"Aggiornamento testata partita su ADCFRT01 (AGGIORNA-TAB01) per CATT={catt}",
-                         depth=depth)
-        self._aggiorna_tab01(ctx, cges, catt, identificativo, depth=depth + 1)
+        # STEP-4/7: AGGIORNA-TAB01 (Aggiornamento stato partita testata a '0G')
+        BatchLogger.info("STEP-4/7", f"Aggiornamento testata partita su ADCFRT01 (AGGIORNA-TAB01) per CATT={catt}", depth=depth)
+        self._db_update_tab01_stato(ctx, cges, catt, identificativo, depth=depth + 1)
 
-        # 5) STEP-5/7: AGGIORNA-TAB10 (Aggiornamento articoli correlati a '0G' e numerazione carico)
+        # STEP-5/7: AGGIORNA-TAB10 (Aggiornamento articoli correlati a '0G' e numerazione carico)
         if ctx.indic_errore != "X":
-            BatchLogger.info("STEP-5/7",
-                             f"Aggiornamento articoli su ADCFRT10 (AGGIORNA-TAB10) per CGES={cges} CATT={catt}",
-                             depth=depth)
+            BatchLogger.info("STEP-5/7", f"Aggiornamento articoli su ADCFRT10 (AGGIORNA-TAB10) per CGES={cges} CATT={catt}", depth=depth)
             self._aggiorna_tab10(ctx, cges, catt, depth=depth + 1)
 
-    def _aggiorna_tab01(self, ctx: FormazioneAvvisoContext, cges: str, catt: str, identificativo: str,
-                        depth: int) -> None:
-        upd_t01 = (
-            self.engine.dataset("ADCFRT01")
-            .filter_by("gestione", "=", cges)
-            .filter_by("codiceAtto", "=", catt)
-            .compile_update({
-                "annoCarico": getattr(ctx, "ws_annoruo", ""),
-                "numCarico": getattr(ctx, "ws_nprgruo", ""),
-                "numChkCarico": getattr(ctx, "ws_nchkruo", ""),
-                "statoAttivita": "0G",
-                "timestampVarStato": datetime.now()
-            })
-        )
-        righe = self.engine.execute_mutation(upd_t01, depth=depth)
-        BatchLogger.debug("AGGIORNA-TAB01", f"CATT={catt} -> Partita aggiornata a '0G' (righe: {righe})", depth=depth)
+    def _db_update_tab01_stato(self, ctx: FormazioneAvvisoContext, cges: str, catt: str, identificativo: str,
+                               depth: int) -> int:
+        try:
+            upd = (
+                self.engine.dataset("ADCFRT01")
+                .filter_by("gestione", "=", cges)
+                .filter_by("codiceAtto", "=", catt)
+                .compile_update({
+                    "annoCarico": getattr(ctx, "ws_annoruo", ""),
+                    "numCarico": getattr(ctx, "ws_nprgruo", ""),
+                    "numChkCarico": getattr(ctx, "ws_nchkruo", ""),
+                    "statoAttivita": "0G",
+                    "timestampVarStato": datetime.now()
+                })
+            )
+            righe = self.engine.execute_mutation(upd, depth=depth)
+            BatchLogger.debug("AGGIORNA-TAB01", f"CATT={catt} -> Partita aggiornata a '0G' (righe: {righe})", depth=depth)
+            return righe
+        except Exception as err:
+            BatchLogger.error("DB-UPD-TAB01", f"Errore UPDATE stato su ADCFRT01 per CATT={catt}: {err}", depth=depth)
+
+            ctx.indic_errore = "X"
+            return -1
+
 
     def _aggiorna_tab10(self, ctx: FormazioneAvvisoContext, cges: str, catt: str, depth: int) -> None:
         BatchLogger.info("AGGIORNA-TAB10", f"Apertura cursore articoli per CGES={cges} CATT={catt}", depth=depth)
         t10_map = self.engine.get_table_map("ADCFRT10")
 
-        query_curt10 = (
-            self.engine.dataset("ADCFRT10")
-            .select("gestione", "codiceAtto", "progArticolo", "impTributo", "impTributoCalc")
-            .filter_by("gestione", "=", cges)
-            .filter_by("codiceAtto", "=", catt)
-            .filter_by("statoArticolo", "=", "0I")
-            .order_by("gestione", "codiceAtto", "progArticolo")
-            .with_uncommitted_read()
-            .compile_select()
-        )
-
         righe_aggiornate = 0
         ctx.ws_itrbavv = Decimal("0")
 
-        for chunk in self.engine.cursor_stream(query_curt10, buffer_size=500, depth=depth):
+        for chunk in self._db_stream_curt10(cges, catt, depth=depth):
             for raw_row in chunk:
                 row_t10 = t10_map.normalize(raw_row)
                 nprgart = row_t10.get("progArticolo")
@@ -503,24 +586,15 @@ class AggiornaTabelleStep:
 
                 itrb_carico = row_t10.get("impTributoCalc") or itrb_val
 
-                upd_t10 = (
-                    self.engine.dataset("ADCFRT10")
-                    .filter_by("gestione", "=", cges)
-                    .filter_by("codiceAtto", "=", catt)
-                    .filter_by("progArticolo", "=", nprgart)
-                    .compile_update({
-                        "statoArticolo": "0G",
-                        "timestampUpd": datetime.now(),
-                        "progCarico": ctx.ws_nespart,
-                        "impTributoCarico": itrb_carico,
-                        "flgEuroCarico": "1",
-                    })
+                self._db_update_tab10_articolo(
+                    cges=cges,
+                    catt=catt,
+                    nprgart=nprgart,
+                    prog_carico=ctx.ws_nespart,
+                    itrb_carico=itrb_carico,
+                    depth=depth
                 )
-
-                self.engine.execute_mutation(upd_t10, depth=depth)
                 righe_aggiornate += 1
-
-                # Check commit parziale basato sulla soglia configurata esternamente
                 self._verifica_e_committa_lotto(depth=depth)
 
         BatchLogger.debug(
@@ -529,9 +603,61 @@ class AggiornaTabelleStep:
             depth=depth
         )
 
-    # -------------------------------------------------------------------------
+        ctx.indic_errore = "X"
+        return -1
+
+
+    def _db_stream_curt10(self, cges: str, catt: str, depth: int) -> Iterator[List[Any]]:
+        try:
+            query = (
+                self.engine.dataset("ADCFRT10")
+                .select("gestione", "codiceAtto", "progArticolo", "impTributo", "impTributoCalc")
+                .filter_by("gestione", "=", cges)
+                .filter_by("codiceAtto", "=", catt)
+                .filter_by("statoArticolo", "=", "0I")
+                .order_by("gestione", "codiceAtto", "progArticolo")
+                .with_uncommitted_read()
+                .compile_select()
+            )
+            return self.engine.cursor_stream(query, buffer_size=500, depth=depth)
+        except Exception as err:
+            BatchLogger.error("DB-STREAM-CURT10", f"Errore apertura cursore CURT10 [CGES={cges}, CATT={catt}]: {err}", depth=depth)
+
+            ctx.indic_errore = "X"
+            return -1
+
+
+    def _db_update_tab10_articolo(self, cges: str, catt: str, nprgart: Any, prog_carico: int,
+                                  itrb_carico: Decimal, depth: int) -> int:
+        try:
+            upd = (
+                self.engine.dataset("ADCFRT10")
+                .filter_by("gestione", "=", cges)
+                .filter_by("codiceAtto", "=", catt)
+                .filter_by("progArticolo", "=", nprgart)
+                .compile_update({
+                    "statoArticolo": "0G",
+                    "timestampUpd": datetime.now(),
+                    "progCarico": prog_carico,
+                    "impTributoCarico": itrb_carico,
+                    "flgEuroCarico": "1",
+                })
+            )
+            return self.engine.execute_mutation(upd, depth=depth)
+        except Exception as err:
+            BatchLogger.error(
+                "DB-UPD-TAB10",
+                f"Errore UPDATE ADCFRT10 [CGES={cges}, CATT={catt}, PROG_ART={nprgart}]: {err}",
+                depth=depth
+            )
+
+            ctx.indic_errore = "X"
+            return -1
+
+
+    # =========================================================================
     # STEP 6: INSERISCI-SPESE (Orchestratore T01, T10, T14)
-    # -------------------------------------------------------------------------
+    # =========================================================================
     def _inserisci_spese(self, ctx: FormazioneAvvisoContext, identificativo: str, depth: int) -> None:
         cges = getattr(ctx, "n_cges", ctx.ws_cges)
         catt = getattr(ctx, "n_catt", "")
@@ -571,43 +697,21 @@ class AggiornaTabelleStep:
                 f"Errore durante l'inserimento spese per CATT={id_avviso}: {err}",
                 depth=depth
             )
+
             ctx.indic_errore = "X"
-            raise err
+            return -1
+
 
     def _inserisci_spese_t01(self, ctx: FormazioneAvvisoContext, cges: str, catt: str, id_avviso: str,
                              depth: int) -> dict:
         t01_map = self.engine.get_table_map("ADCFRT01")
+        rows = self._db_fetch_t01_master_spese(cges, catt, depth=depth)
 
-        query_t01_sel = (
-            self.engine.dataset("ADCFRT01")
-            .select(
-                "gestione", "codiceAtto", "codiceFiscale", "sede", "zona", "codCentro", "partitaIva",
-                "dataInf", "dataNot", "codDipendente", "dataRifCon", "codAzienda", "descrizioneAtto",
-                "annoEmissione", "numEmissione", "numInail", "codSegnalazione", "flgDecadenza",
-                "meseInizioPeriodo", "meseFinePeriodo", "dataFallimento", "numSogg", "numRate",
-                "statoAttivita", "codEsattoria", "flgValFiscale", "annoRifRuolo", "numRuolo", "flgEuro",
-                "codEsattoriaDel", "annoCarico", "numCarico", "numChkCarico", "dataTransizioneStato",
-                "flgIscrizione", "flgCessione", "codCausale", "codFasAmm", "statoAzienda", "dataStatoAzienda",
-                "descrizioneAttoBi", "timestampInsStato", "timestampVarStato", "tipoAvviso", "annoAvviso",
-                "progAvviso", "numPartitaAvviso", "numEspAvviso", "periodo", "periodoBi", "sedeOrigine",
-                "flgSanzioni", "flgCessioneRuolo", "flgRateizzazione", "codEsattoriaAvviso", "codiceErrore",
-                "flgSanzioniAdr"
-            )
-            .filter_by("gestione", "=", cges)
-            .filter_by("codiceAtto", "=", catt)
-            .with_uncommitted_read()
-            .limit(1)
-            .compile_select()
-        )
-
-        rows = self.engine.fetch(query_t01_sel, depth=depth)
         if not rows:
-            BatchLogger.warn("INSERISCI-SPESE-T01", f"Record master ADCFRT01 non trovato per CGES={cges} CATT={catt}",
-                             depth=depth)
+            BatchLogger.warn("INSERISCI-SPESE-T01", f"Record master ADCFRT01 non trovato per CGES={cges} CATT={catt}", depth=depth)
             return {}
 
         record_t01 = t01_map.normalize(rows[0])
-
         d_zero = "0001-01-01"
         d_not = record_t01.get("dataNot")
         d_fal = record_t01.get("dataFallimento")
@@ -663,50 +767,63 @@ class AggiornaTabelleStep:
 
         num_partita = int(record_t01.get("numPartitaAvviso") or 0)
         record_t01["numEspAvviso"] = num_partita + 1
-
         record_t01.pop("idAvvisoRuolo", None)
 
-        ins_t01 = self.engine.dataset("ADCFRT01").compile_insert(record_t01)
-        righe = self.engine.execute_mutation(ins_t01, depth=depth)
-
-        # Check commit parziale
+        righe = self._db_insert_t01(record_t01, depth=depth)
         self._verifica_e_committa_lotto(depth=depth)
 
-        BatchLogger.debug("INSERISCI-SPESE-T01", f"ADCFRT01 inserito con CATT={id_avviso} (Righe: {righe})",
-                          depth=depth)
+        BatchLogger.debug("INSERISCI-SPESE-T01", f"ADCFRT01 inserito con CATT={id_avviso} (Righe: {righe})", depth=depth)
         return record_t01
+
+
+    def _db_fetch_t01_master_spese(self, cges: str, catt: str, depth: int) -> List[Any]:
+        try:
+            query = (
+                self.engine.dataset("ADCFRT01")
+                .select(
+                    "gestione", "codiceAtto", "codiceFiscale", "sede", "zona", "codCentro", "partitaIva",
+                    "dataInf", "dataNot", "codDipendente", "dataRifCon", "codAzienda", "descrizioneAtto",
+                    "annoEmissione", "numEmissione", "numInail", "codSegnalazione", "flgDecadenza",
+                    "meseInizioPeriodo", "meseFinePeriodo", "dataFallimento", "numSogg", "numRate",
+                    "statoAttivita", "codEsattoria", "flgValFiscale", "annoRifRuolo", "numRuolo", "flgEuro",
+                    "codEsattoriaDel", "annoCarico", "numCarico", "numChkCarico", "dataTransizioneStato",
+                    "flgIscrizione", "flgCessione", "codCausale", "codFasAmm", "statoAzienda", "dataStatoAzienda",
+                    "descrizioneAttoBi", "timestampInsStato", "timestampVarStato", "tipoAvviso", "annoAvviso",
+                    "progAvviso", "numPartitaAvviso", "numEspAvviso", "periodo", "periodoBi", "sedeOrigine",
+                    "flgSanzioni", "flgCessioneRuolo", "flgRateizzazione", "codEsattoriaAvviso", "codiceErrore",
+                    "flgSanzioniAdr"
+                )
+                .filter_by("gestione", "=", cges)
+                .filter_by("codiceAtto", "=", catt)
+                .with_uncommitted_read()
+                .limit(1)
+                .compile_select()
+            )
+            return self.engine.fetch(query, depth=depth)
+        except Exception as err:
+            BatchLogger.error("DB-FETCH-T01-SPESE", f"Errore lettura master T01 per spese [CGES={cges}, CATT={catt}]: {err}", depth=depth)
+
+            ctx.indic_errore = "X"
+            return -1
+
+
+    def _db_insert_t01(self, record_t01: Dict[str, Any], depth: int) -> int:
+        try:
+            ins = self.engine.dataset("ADCFRT01").compile_insert(record_t01)
+            return self.engine.execute_mutation(ins, depth=depth)
+        except Exception as err:
+            BatchLogger.error("DB-INS-T01", f"Errore insert ADCFRT01 [CATT={record_t01.get('codiceAtto')}]: {err}", depth=depth)
+
+            ctx.indic_errore = "X"
+            return -1
+
 
     def _inserisci_spese_t10(self, ctx: FormazioneAvvisoContext, cges: str, catt: str, id_avviso: str,
                              depth: int) -> None:
         t10_map = self.engine.get_table_map("ADCFRT10")
         n_nprgart = getattr(ctx, "n_nprgart", 1)
 
-        query_t10_sel = (
-            self.engine.dataset("ADCFRT10")
-            .select(
-                "gestione", "codiceAtto", "progArticolo", "numIdDecre", "codTributoCnc", "codCausale",
-                "codPeriodo", "codNaturaTrb", "numRata", "numAccreditamento", "codRata", "impTributo",
-                "flgResiduo", "codAggio", "impAggioAnt", "impAggioTot", "impArrotondamento", "codSsn",
-                "dataFineInf", "impInteressi", "tasso", "meseInizioPeriodo", "meseFinePeriodo",
-                "annoConsolidamento", "numTotRate", "descrizioneArticolo", "impTributoCalc", "dataFineCalc",
-                "progCarico", "impTributoCarico", "flgEuroCarico", "codPagamento", "flgEuroPag",
-                "dataPagamento", "dataRegistrazionePag", "dataDecadenza", "impTributoPagato", "impAggioPagato",
-                "impAggioRimborso", "impAgcPagato", "impMoraPagata", "annoFlusso", "numFlusso",
-                "codEsattoria", "numQuietanza", "dataQuietanza", "dataRiversamento", "statoArticolo",
-                "tipoAggio", "codFasAmm", "statoGiudizio", "gradoGiudizio", "dataStatoGiudizio",
-                "tipoRecupero", "impOrigModificato", "codSituazione", "dataRifConsolidamento", "impCapitale",
-                "dataPredoc", "descrizioneArticoloBi", "numRateDilazione", "vetusta", "timestampIns",
-                "timestampUpd", "impContributoDovuto", "impContributoVersato", "impAggio"
-            )
-            .filter_by("gestione", "=", cges)
-            .filter_by("codiceAtto", "=", catt)
-            .filter_by("progArticolo", "=", n_nprgart)
-            .with_uncommitted_read()
-            .limit(1)
-            .compile_select()
-        )
-
-        rows = self.engine.fetch(query_t10_sel, depth=depth)
+        rows = self._db_fetch_t10_master_spese(cges, catt, n_nprgart, depth=depth)
         if not rows:
             BatchLogger.warn(
                 "INSERISCI-SPESE-T10",
@@ -716,7 +833,6 @@ class AggiornaTabelleStep:
             return
 
         record_t10 = t10_map.normalize(rows[0])
-
         ctx.ws_nespart = getattr(ctx, "ws_nespart", 0) + 1
         ws_annoruo_dec = int(str(ctx.dcon.year) if hasattr(ctx.dcon, "year") else str(ctx.dcon or "")[:4])
 
@@ -792,10 +908,7 @@ class AggiornaTabelleStep:
         itrb_val = Decimal(str(record_t10.get("impTributo") or 0))
         ctx.ws_itrbavv = getattr(ctx, "ws_itrbavv", Decimal("0")) + itrb_val
 
-        ins_t10 = self.engine.dataset("ADCFRT10").compile_insert(record_t10)
-        righe = self.engine.execute_mutation(ins_t10, depth=depth)
-
-        # Check commit parziale
+        righe = self._db_insert_t10(record_t10, depth=depth)
         self._verifica_e_committa_lotto(depth=depth)
 
         BatchLogger.debug(
@@ -804,31 +917,59 @@ class AggiornaTabelleStep:
             depth=depth
         )
 
+
+    def _db_fetch_t10_master_spese(self, cges: str, catt: str, nprgart: Any, depth: int) -> List[Any]:
+        try:
+            query = (
+                self.engine.dataset("ADCFRT10")
+                .select(
+                    "gestione", "codiceAtto", "progArticolo", "numIdDecre", "codTributoCnc", "codCausale",
+                    "codPeriodo", "codNaturaTrb", "numRata", "numAccreditamento", "codRata", "impTributo",
+                    "flgResiduo", "codAggio", "impAggioAnt", "impAggioTot", "impArrotondamento", "codSsn",
+                    "dataFineInf", "impInteressi", "tasso", "meseInizioPeriodo", "meseFinePeriodo",
+                    "annoConsolidamento", "numTotRate", "descrizioneArticolo", "impTributoCalc", "dataFineCalc",
+                    "progCarico", "impTributoCarico", "flgEuroCarico", "codPagamento", "flgEuroPag",
+                    "dataPagamento", "dataRegistrazionePag", "dataDecadenza", "impTributoPagato", "impAggioPagato",
+                    "impAggioRimborso", "impAgcPagato", "impMoraPagata", "annoFlusso", "numFlusso",
+                    "codEsattoria", "numQuietanza", "dataQuietanza", "dataRiversamento", "statoArticolo",
+                    "tipoAggio", "codFasAmm", "statoGiudizio", "gradoGiudizio", "dataStatoGiudizio",
+                    "tipoRecupero", "impOrigModificato", "codSituazione", "dataRifConsolidamento", "impCapitale",
+                    "dataPredoc", "descrizioneArticoloBi", "numRateDilazione", "vetusta", "timestampIns",
+                    "timestampUpd", "impContributoDovuto", "impContributoVersato", "impAggio"
+                )
+                .filter_by("gestione", "=", cges)
+                .filter_by("codiceAtto", "=", catt)
+                .filter_by("progArticolo", "=", nprgart)
+                .with_uncommitted_read()
+                .limit(1)
+                .compile_select()
+            )
+            return self.engine.fetch(query, depth=depth)
+        except Exception as err:
+            BatchLogger.error("DB-FETCH-T10-SPESE", f"Errore lettura master T10 [CGES={cges}, CATT={catt}, NPRG={nprgart}]: {err}", depth=depth)
+
+            ctx.indic_errore = "X"
+            return -1
+
+
+    def _db_insert_t10(self, record_t10: Dict[str, Any], depth: int) -> int:
+        try:
+            ins = self.engine.dataset("ADCFRT10").compile_insert(record_t10)
+            return self.engine.execute_mutation(ins, depth=depth)
+        except Exception as err:
+            BatchLogger.error("DB-INS-T10", f"Errore inserimento articolo spese su ADCFRT10: {err}", depth=depth)
+
+            ctx.indic_errore = "X"
+            return -1
+
+
     def _inserisci_spese_t14(self, ctx: FormazioneAvvisoContext, cges: str, catt: str, id_avviso: str,
                              depth: int) -> None:
         t14_map = self.engine.get_table_map("ADCFRT14")
+        rows = self._db_fetch_t14_master_spese(cges, catt, depth=depth)
 
-        query_t14_sel = (
-            self.engine.dataset("ADCFRT14")
-            .select(
-                "gestione", "codiceAtto", "codiceAnag", "partitaIva", "codiceFiscale", "cognome", "nome",
-                "sesso", "dataNascita", "comuneNascita", "provinciaNascita", "indirizzo", "numeroCivico",
-                "letteraCivico", "numeroChilometro", "cap", "localita", "siglaProvincia", "comuneDomicilio",
-                "indAnagrafeTrib", "capAnagrafeTrib", "siglaProvAnagrafeTrib", "locAnagrafeTrib", "comuneAnagrafeTrib",
-                "dataValidDoc", "pec"
-            )
-            .filter_by("gestione", "=", cges)
-            .filter_by("codiceAtto", "=", catt)
-            .filter_by("codiceAnag", "=", "I")
-            .with_uncommitted_read()
-            .limit(1)
-            .compile_select()
-        )
-
-        rows = self.engine.fetch(query_t14_sel, depth=depth)
         if not rows:
-            BatchLogger.warn("INSERISCI-SPESE-T14", f"Anagrafica ADCFRT14 non trovata per CGES={cges}, CATT={catt}",
-                             depth=depth)
+            BatchLogger.warn("INSERISCI-SPESE-T14", f"Anagrafica ADCFRT14 non trovata per CGES={cges}, CATT={catt}", depth=depth)
             return
 
         record_t14 = t14_map.normalize(rows[0])
@@ -840,7 +981,6 @@ class AggiornaTabelleStep:
         elif "totaleTributi" in record_t14:
             record_t14["totaleTributi"] = ctx.ws_itrbavv
 
-        # Normalizzazione preventiva del campo chilometrico per preservare il tipo intero
         if "numeroChilometro" in record_t14:
             raw_nkim = str(record_t14.get("numeroChilometro") or "").strip().replace(",", ".")
             try:
@@ -848,11 +988,7 @@ class AggiornaTabelleStep:
             except (ValueError, TypeError):
                 record_t14["numeroChilometro"] = 0
 
-        ins_t14 = (self.engine.dataset("ADCFRT14")
-                   .compile_insert(record_t14))
-        righe = self.engine.execute_mutation(ins_t14, depth=depth)
-
-        # Check commit parziale
+        righe = self._db_insert_t14(record_t14, depth=depth)
         self._verifica_e_committa_lotto(depth=depth)
 
         BatchLogger.debug(
@@ -861,14 +997,50 @@ class AggiornaTabelleStep:
             depth=depth
         )
 
-    # -------------------------------------------------------------------------
+
+    def _db_fetch_t14_master_spese(self, cges: str, catt: str, depth: int) -> List[Any]:
+        try:
+            query = (
+                self.engine.dataset("ADCFRT14")
+                .select(
+                    "gestione", "codiceAtto", "codiceAnag", "partitaIva", "codiceFiscale", "cognome", "nome",
+                    "sesso", "dataNascita", "comuneNascita", "provinciaNascita", "indirizzo", "numeroCivico",
+                    "letteraCivico", "numeroChilometro", "cap", "localita", "siglaProvincia", "comuneDomicilio",
+                    "indAnagrafeTrib", "capAnagrafeTrib", "siglaProvAnagrafeTrib", "locAnagrafeTrib", "comuneAnagrafeTrib",
+                    "dataValidDoc", "pec"
+                )
+                .filter_by("gestione", "=", cges)
+                .filter_by("codiceAtto", "=", catt)
+                .filter_by("codiceAnag", "=", "I")
+                .with_uncommitted_read()
+                .limit(1)
+                .compile_select()
+            )
+            return self.engine.fetch(query, depth=depth)
+        except Exception as err:
+            BatchLogger.error("DB-FETCH-T14-SPESE", f"Errore lettura master T14 [CGES={cges}, CATT={catt}]: {err}"
+                              , depth=depth
+                              )
+
+            ctx.indic_errore = "X"
+            return -1
+
+
+    def _db_insert_t14(self, record_t14: Dict[str, Any], depth: int) -> int:
+        try:
+            ins = self.engine.dataset("ADCFRT14").compile_insert(record_t14)
+            return self.engine.execute_mutation(ins, depth=depth)
+        except Exception as err:
+            BatchLogger.error("DB-INS-T14", f"Errore inserimento ADCFRT14 [CATT={record_t14.get('codiceAtto')}]: {err}", depth=depth)
+
+            ctx.indic_errore = "X"
+            return -1
+
+
+    # =========================================================================
     # STEP 7: INSERISCI-TAB03 (DDL: DTPT03.ADCFRT03 via ADCFRT03.json)
-    # -------------------------------------------------------------------------
+    # =========================================================================
     def _inserisci_tab03(self, ctx: FormazioneAvvisoContext, identificativo: str, depth: int) -> None:
-        """
-        Inserisce il record riepilogativo di testata dell'avviso formato in ADCFRT03
-        utilizzando i campi logici esatti definiti nel mapper JSON di ADCFRT03.
-        """
         BatchLogger.info(
             "STEP-7/7",
             f"Inserimento testata avviso in ADCFRT03 (Tot. Trib: {ctx.ws_itrbavv}, Aggio: {ctx.ws_iaggavv})",
@@ -897,7 +1069,6 @@ class AggiornaTabelleStep:
         cesaavv_val = int(str(ctx.ws_cesaavv).strip() or 0)
         d_con = ctx.dcon if isinstance(ctx.dcon, (date, datetime)) else date(2026, 8, 25)
 
-        # Mappatura esclusiva sui nomi logici definiti in ADCFRT03.json
         record_t03 = {
             "codConcessione": cesaavv_val,
             "annoCartella": ws_annoruo_dec,
@@ -943,10 +1114,7 @@ class AggiornaTabelleStep:
             "codErroreEsito": " " * 189
         }
 
-        ins_t03 = self.engine.dataset("ADCFRT03").compile_insert(record_t03)
-        righe = self.engine.execute_mutation(ins_t03, depth=depth)
-
-        # Check commit parziale
+        righe = self._db_insert_t03(record_t03, depth=depth)
         self._verifica_e_committa_lotto(depth=depth)
 
         BatchLogger.debug(
@@ -954,3 +1122,17 @@ class AggiornaTabelleStep:
             f"Testata ADCFRT03 inserita per avviso {ctx.ws_annoavv}/{ctx.ws_progavv} (Righe: {righe})",
             depth=depth
         )
+
+    def _db_insert_t03(self, record_t03: Dict[str, Any], depth: int) -> int:
+        try:
+            ins = self.engine.dataset("ADCFRT03").compile_insert(record_t03)
+            return self.engine.execute_mutation(ins, depth=depth)
+        except Exception as err:
+            BatchLogger.error(
+                "DB-INS-T03",
+                f"Errore inserimento ADCFRT03 [Cartella={record_t03.get('annoCartella')}/{record_t03.get('numCartella')}]: {err}",
+                depth=depth
+            )
+
+            ctx.indic_errore = "X"
+            return -1
