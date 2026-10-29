@@ -46,7 +46,7 @@
       "logical_type": "string",
       "padding": true
     },
-    "comune" : {
+    "comune_sedi" : {
       "db2": "COMUNE",
       "sqlserver":"Comune",
       "logical_type": "string",

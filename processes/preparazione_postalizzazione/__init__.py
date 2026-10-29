@@ -1,4 +1,4 @@
-# processes/formazione_avviso/__init__.py
+# processes/preparazione_postalizzazione/__init__.py
 """
 Package dedicato alla reingegnerizzazione del programma COBOL batch PDCPOAVV.
 """
