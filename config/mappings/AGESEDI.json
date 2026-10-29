@@ -1,0 +1,483 @@
+{
+  "table": {
+    "db2": "AGESEDI",
+    "sqlserver": "AGESEDI"
+  },
+  "columns": {
+    "rg": {
+      "db2": "RG",
+      "sqlserver": "Rg",
+      "logical_type": "string",
+      "padding": true
+    },
+    "ss": {
+      "db2": "SS",
+      "sqlserver": "Ss",
+      "logical_type": "string",
+      "padding": true
+    },
+    "zz": {
+      "db2": "ZZ",
+      "sqlserver": "Zz",
+      "logical_type": "string",
+      "padding": true
+    },
+    "co": {
+      "db2": "CO",
+      "sqlserver": "Co",
+      "logical_type": "string",
+      "padding": true
+    },
+    "sszz": {
+      "db2": "SSZZ",
+      "sqlserver": "Sszz",
+      "logical_type": "string",
+      "padding": true
+    },
+    "sszzco": {
+      "db2": "SSZZCO",
+      "sqlserver": "Sszzco",
+      "logical_type": "string",
+      "padding": true
+    },
+    "ppc": {
+      "db2": "PPC",
+      "sqlserver": "Ppc",
+      "logical_type": "string",
+      "padding": true
+    },
+    "aspn": {
+      "db2": "ASPN",
+      "sqlserver": "Aspn",
+      "logical_type": "string",
+      "padding": true
+    },
+    "asdm": {
+      "db2": "ASDM",
+      "sqlserver": "Asdm",
+      "logical_type": "string",
+      "padding": true
+    },
+    "vtam": {
+      "db2": "VTAM",
+      "sqlserver": "Vtam",
+      "logical_type": "string",
+      "padding": true
+    },
+    "tcp": {
+      "db2": "TCP",
+      "sqlserver": "Tcp",
+      "logical_type": "string",
+      "padding": true
+    },
+    "tcp2": {
+      "db2": "TCP2",
+      "sqlserver": "Tcp2",
+      "logical_type": "string",
+      "padding": true
+    },
+    "emaildir": {
+      "db2": "EMAILDIR",
+      "sqlserver": "Emaildir",
+      "logical_type": "string",
+      "padding": true
+    },
+    "intranet": {
+      "db2": "INTRANET",
+      "sqlserver": "Intranet",
+      "logical_type": "string",
+      "padding": true
+    },
+    "gg_agg": {
+      "db2": "GG_AGG",
+      "sqlserver": "GgAgg",
+      "logical_type": "string",
+      "padding": true
+    },
+    "mm_agg": {
+      "db2": "MM_AGG",
+      "sqlserver": "MmAgg",
+      "logical_type": "string",
+      "padding": true
+    },
+    "aa_agg": {
+      "db2": "AA_AGG",
+      "sqlserver": "AaAgg",
+      "logical_type": "string",
+      "padding": true
+    },
+    "flagatt": {
+      "db2": "FLAGATT",
+      "sqlserver": "Flagatt",
+      "logical_type": "string",
+      "padding": true
+    },
+    "gg_ini": {
+      "db2": "GG_INI",
+      "sqlserver": "GgIni",
+      "logical_type": "int"
+    },
+    "mm_ini": {
+      "db2": "MM_INI",
+      "sqlserver": "MmIni",
+      "logical_type": "int"
+    },
+    "aa_ini": {
+      "db2": "AA_INI",
+      "sqlserver": "AaIni",
+      "logical_type": "int"
+    },
+    "gg_fine": {
+      "db2": "GG_FINE",
+      "sqlserver": "GgFine",
+      "logical_type": "int"
+    },
+    "mm_fine": {
+      "db2": "MM_FINE",
+      "sqlserver": "MmFine",
+      "logical_type": "int"
+    },
+    "aa_fine": {
+      "db2": "AA_FINE",
+      "sqlserver": "AaFine",
+      "logical_type": "int"
+    },
+    "dip": {
+      "db2": "DIP",
+      "sqlserver": "Dip",
+      "logical_type": "string",
+      "padding": true
+    },
+    "sedesup": {
+      "db2": "SEDESUP",
+      "sqlserver": "Sedesup",
+      "logical_type": "string",
+      "padding": true
+    },
+    "sede": {
+      "db2": "SEDE",
+      "sqlserver": "Sede",
+      "logical_type": "string",
+      "padding": true
+    },
+    "pr": {
+      "db2": "PR",
+      "sqlserver": "Pr",
+      "logical_type": "string",
+      "padding": true
+    },
+    "regione": {
+      "db2": "REGIONE",
+      "sqlserver": "Regione",
+      "logical_type": "string",
+      "padding": true
+    },
+    "indir": {
+      "db2": "INDIR",
+      "sqlserver": "Indir",
+      "logical_type": "string",
+      "padding": true
+    },
+    "cap": {
+      "db2": "CAP",
+      "sqlserver": "Cap",
+      "logical_type": "string",
+      "padding": true
+    },
+    "comune": {
+      "db2": "COMUNE",
+      "sqlserver": "Comune",
+      "logical_type": "string",
+      "padding": true
+    },
+    "nomedir": {
+      "db2": "NOMEDIR",
+      "sqlserver": "Nomedir",
+      "logical_type": "string",
+      "padding": true
+    },
+    "cogndir": {
+      "db2": "COGNDIR",
+      "sqlserver": "Cogndir",
+      "logical_type": "string",
+      "padding": true
+    },
+    "nomecp": {
+      "db2": "NOMECP",
+      "sqlserver": "Nomecp",
+      "logical_type": "string",
+      "padding": true
+    },
+    "cogncp": {
+      "db2": "COGNCP",
+      "sqlserver": "Cogncp",
+      "logical_type": "string",
+      "padding": true
+    },
+    "prefint": {
+      "db2": "PREFINT",
+      "sqlserver": "Prefint",
+      "logical_type": "string",
+      "padding": true
+    },
+    "telsede": {
+      "db2": "TELSEDE",
+      "sqlserver": "Telsede",
+      "logical_type": "string",
+      "padding": true
+    },
+    "segrtel": {
+      "db2": "SEGRTEL",
+      "sqlserver": "Segrtel",
+      "logical_type": "string",
+      "padding": true
+    },
+    "telrec": {
+      "db2": "TELREC",
+      "sqlserver": "Telrec",
+      "logical_type": "string",
+      "padding": true
+    },
+    "telp1": {
+      "db2": "TELP1",
+      "sqlserver": "Telp1",
+      "logical_type": "string",
+      "padding": true
+    },
+    "telp2": {
+      "db2": "TELP2",
+      "sqlserver": "Telp2",
+      "logical_type": "string",
+      "padding": true
+    },
+    "telced": {
+      "db2": "TELCED",
+      "sqlserver": "Telced",
+      "logical_type": "string",
+      "padding": true
+    },
+    "telisola": {
+      "db2": "TELISOLA",
+      "sqlserver": "Telisola",
+      "logical_type": "string",
+      "padding": true
+    },
+    "telfonia": {
+      "db2": "TELFONIA",
+      "sqlserver": "Telfonia",
+      "logical_type": "string",
+      "padding": true
+    },
+    "verde1": {
+      "db2": "VERDE1",
+      "sqlserver": "Verde1",
+      "logical_type": "string",
+      "padding": true
+    },
+    "verde2": {
+      "db2": "VERDE2",
+      "sqlserver": "Verde2",
+      "logical_type": "string",
+      "padding": true
+    },
+    "teldiri": {
+      "db2": "TELDIRI",
+      "sqlserver": "Teldiri",
+      "logical_type": "string",
+      "padding": true
+    },
+    "teldir": {
+      "db2": "TELDIR",
+      "sqlserver": "Teldir",
+      "logical_type": "string",
+      "padding": true
+    },
+    "telsegpr": {
+      "db2": "TELSEGPR",
+      "sqlserver": "Telsegpr",
+      "logical_type": "string",
+      "padding": true
+    },
+    "telprepr": {
+      "db2": "TELPREPR",
+      "sqlserver": "Telprepr",
+      "logical_type": "string",
+      "padding": true
+    },
+    "datafax": {
+      "db2": "DATAFAX",
+      "sqlserver": "Datafax",
+      "logical_type": "string",
+      "padding": true
+    },
+    "faxsede": {
+      "db2": "FAXSEDE",
+      "sqlserver": "Faxsede",
+      "logical_type": "string",
+      "padding": true
+    },
+    "faxdir": {
+      "db2": "FAXDIR",
+      "sqlserver": "Faxdir",
+      "logical_type": "string",
+      "padding": true
+    },
+    "faxcp": {
+      "db2": "FAXCP",
+      "sqlserver": "Faxcp",
+      "logical_type": "string",
+      "padding": true
+    },
+    "nomepatr": {
+      "db2": "NOMEPATR",
+      "sqlserver": "Nomepatr",
+      "logical_type": "string",
+      "padding": true
+    },
+    "ggpatr": {
+      "db2": "GGPATR",
+      "sqlserver": "Ggpatr",
+      "logical_type": "string",
+      "padding": true
+    },
+    "mmpatr": {
+      "db2": "MMPATR",
+      "sqlserver": "Mmpatr",
+      "logical_type": "string",
+      "padding": true
+    },
+    "utenza": {
+      "db2": "UTENZA",
+      "sqlserver": "Utenza",
+      "logical_type": "string",
+      "padding": true
+    },
+    "nomeru": {
+      "db2": "NOMERU",
+      "sqlserver": "Nomeru",
+      "logical_type": "string",
+      "padding": true
+    },
+    "cognru": {
+      "db2": "COGNRU",
+      "sqlserver": "Cognru",
+      "logical_type": "string",
+      "padding": true
+    },
+    "telru": {
+      "db2": "TELRU",
+      "sqlserver": "Telru",
+      "logical_type": "string",
+      "padding": true
+    },
+    "nome626": {
+      "db2": "NOME626",
+      "sqlserver": "Nome626",
+      "logical_type": "string",
+      "padding": true
+    },
+    "cogn626": {
+      "db2": "COGN626",
+      "sqlserver": "Cogn626",
+      "logical_type": "string",
+      "padding": true
+    },
+    "tel626": {
+      "db2": "TEL626",
+      "sqlserver": "Tel626",
+      "logical_type": "string",
+      "padding": true
+    },
+    "nomesic": {
+      "db2": "NOMESIC",
+      "sqlserver": "Nomesic",
+      "logical_type": "string",
+      "padding": true
+    },
+    "cognsic": {
+      "db2": "COGNSIC",
+      "sqlserver": "Cognsic",
+      "logical_type": "string",
+      "padding": true
+    },
+    "telsic": {
+      "db2": "TELSIC",
+      "sqlserver": "Telsic",
+      "logical_type": "string",
+      "padding": true
+    },
+    "nabit": {
+      "db2": "NABIT",
+      "sqlserver": "Nabit",
+      "logical_type": "int"
+    },
+    "npens": {
+      "db2": "NPENS",
+      "sqlserver": "Npens",
+      "logical_type": "int"
+    },
+    "nart": {
+      "db2": "NART",
+      "sqlserver": "Nart",
+      "logical_type": "int"
+    },
+    "ncom": {
+      "db2": "NCOM",
+      "sqlserver": "Ncom",
+      "logical_type": "int"
+    },
+    "naz": {
+      "db2": "NAZ",
+      "sqlserver": "Naz",
+      "logical_type": "int"
+    },
+    "ncd": {
+      "db2": "NCD",
+      "sqlserver": "Ncd",
+      "logical_type": "int"
+    },
+    "nagr": {
+      "db2": "NAGR",
+      "sqlserver": "Nagr",
+      "logical_type": "int"
+    },
+    "emailsede": {
+      "db2": "EMAILSEDE",
+      "sqlserver": "Emailsede",
+      "logical_type": "string",
+      "padding": true
+    },
+    "emailutenza": {
+      "db2": "EMAILUTENZA",
+      "sqlserver": "Emailutenza",
+      "logical_type": "string",
+      "padding": true
+    },
+    "email626": {
+      "db2": "EMAIL626",
+      "sqlserver": "Email626",
+      "logical_type": "string",
+      "padding": true
+    },
+    "emailsi": {
+      "db2": "EMAILSI",
+      "sqlserver": "Emailsi",
+      "logical_type": "string",
+      "padding": true
+    },
+    "emailcp": {
+      "db2": "EMAILCP",
+      "sqlserver": "Emailcp",
+      "logical_type": "string",
+      "padding": true
+    },
+    "vedo": {
+      "db2": "VEDO",
+      "sqlserver": "Vedo",
+      "logical_type": "string",
+      "padding": true,
+      "default": "0",
+      "nullable": false
+}
+  }
+}

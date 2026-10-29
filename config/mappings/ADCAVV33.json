@@ -1,0 +1,73 @@
+{
+  "table": {
+    "db2": "DTPT03.ADCAVV33",
+    "sqlserver": "ADCAVV33"
+  },
+  "columns": {
+    "gestione": {
+      "db2": "CGES",
+      "sqlserver": "gestione",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codiceAtto": {
+      "db2": "CATT",
+      "sqlserver": "CodiceAtto",
+      "logical_type": "string",
+      "padding": true
+    },
+    "tribunale": {
+      "db2": "TRIBUNALE",
+      "sqlserver": "Tribunale",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codiceTribunale": {
+      "db2": "CODTR",
+      "sqlserver": "CodiceTribunale",
+      "logical_type": "string",
+      "padding": true
+    },
+    "identificativoAvviso": {
+      "db2": "IDAVV",
+      "sqlserver": "IdentificativoAvviso",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codiceAvviso": {
+      "db2": "CODAVV",
+      "sqlserver": "CodiceAvviso",
+      "logical_type": "string",
+      "padding": true
+    },
+    "timestampInserimento": {
+      "db2": "TMSINS",
+      "sqlserver": "TmpInserimento",
+      "logical_type": "datetime"
+    },
+    "descrizionePartita1": {
+      "db2": "DESC_PARTITA_1",
+      "sqlserver": "DescrizionePartita1",
+      "logical_type": "string",
+      "padding": true
+    },
+    "descrizionePartita2": {
+      "db2": "DESC_PARTITA_2",
+      "sqlserver": "descrizionePartita2",
+      "logical_type": "string",
+      "padding": true
+    },
+    "descrizionePartita3": {
+      "db2": "DESC_PARTITA_3",
+      "sqlserver": "descrizionePartita3",
+      "logical_type": "string",
+      "padding": true
+    },
+    "descrizionePartita4": {
+      "db2": "DESC_PARTITA_4",
+      "sqlserver": "descrizionePartita4",
+      "logical_type": "string",
+      "padding": true
+    }
+  }
+}

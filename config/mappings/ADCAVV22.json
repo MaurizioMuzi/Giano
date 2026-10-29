@@ -1,0 +1,65 @@
+{
+  "table": {
+    "db2": "DTPT03.ADCAVV22",
+    "sqlserver": "ADCAVV22"
+  },
+  "columns": {
+    "gestione": {
+      "db2": "CGES",
+      "sqlserver": "Gestione",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codiceAtto": {
+      "db2": "CATT",
+      "sqlserver": "CodiceAtto",
+      "logical_type": "string",
+      "padding": true
+    },
+    "progEsposizioneCF": {
+      "db2": "NESPCF",
+      "sqlserver": "ProgressivoCF",
+      "logical_type": "int"
+    },
+    "cognome": {
+      "db2": "SCOG",
+      "sqlserver": "Cognome",
+      "logical_type": "string",
+      "padding": true
+    },
+    "nome": {
+      "db2": "SNOM",
+      "sqlserver": "Nome",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codiceFiscale": {
+      "db2": "CFIS",
+      "sqlserver": "CodiceFiscale",
+      "logical_type": "string",
+      "padding": true
+    },
+    "identificativoAvviso": {
+      "db2": "IDAVV",
+      "sqlserver": "IdentificativoAvviso",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codiceAvviso": {
+      "db2": "CODAVV",
+      "sqlserver": "CodiceAvviso",
+      "logical_type": "string",
+      "padding": true
+    },
+    "prgCens": {
+      "db2": "PRGCENS",
+      "sqlserver": "PrgCens",
+      "logical_type": "decimal"
+    },
+    "timestampInserimento": {
+      "db2": "TMSINS",
+      "sqlserver": "TmpInserimento",
+      "logical_type": "datetime"
+    }
+  }
+}

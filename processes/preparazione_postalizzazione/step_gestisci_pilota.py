@@ -66,18 +66,19 @@ class GestiscePilota:
             raise RuntimeError("[COBOL_EXCEPTION] POSTALIZZAZIONE NON CONSENTITA: TABELLA PILOTA VUOTA")
 
         row = tavv11_map.normalize(rows[0])
-        numelab_estratto = row["numelab"]
+        ctx.ws_num_elab = row.get["numelab"]
 
-        numelab_nuovo = numelab_estratto
+        #numelab_nuovo = ctx.ws_num_elab
 
         if ctx.fstfor == "3":
         # NUMELAB si incrementa solo se FSTFOR (pre-update) era '3' -> nuovo giro di elaborazione
         # se non è un nuovo giro ('3'), NUMELAB resta quello estratto
-            numelab_nuovo += 1
+            #numelab_nuovo += 1
+            ctx.ws_num_elab = ctx.ws_num_elab + 1
 
             BatchLogger.info(
                 "NUMELAB-CALCOLATO",
-                f"NUMELAB estratto={numelab_estratto} | FSTFOR-precedente={ctx.fstfor} | NUMELAB-nuovo={numelab_nuovo}",
+                f"NUMELAB estratto={ctx.ws_num_elab} | FSTFOR-precedente={ctx.fstfor} | NUMELAB-nuovo={ctx.ws_num_elab}",
                 depth=1
             )
             # inserimento di un record in ADCAVV11 per ognuno dei progressivi censimento
@@ -87,7 +88,7 @@ class GestiscePilota:
                 depth=1
             )
             for prgcens in CATEGORIE_GESTIONE:
-                self._insert_pilota(ctx, numelab_nuovo, prgcens)
+                self._insert_pilota(ctx, prgcens)
 
             BatchLogger.info(
                 "INSERT-PILOTA-COMPLETATO",
@@ -95,14 +96,15 @@ class GestiscePilota:
                 depth=1
             )
 
-    def _insert_pilota(self, ctx, numelab_nuovo: int, prgcens: int) -> None:
+    def _insert_pilota(self, ctx, #numelab_nuovo: int,
+                       prgcens: int) -> None:
         """Rif. COBOL: INSERT-PILOTA-1 .. INSERT-PILOTA-30 (PRGCENS diverso).
         DCON/DINIFOR/DFINFOR provengono da CNTR-STATO-FORMAZIONE (già in ctx).
         CSTACOM/CSTAAVV = '0' e i tre timestamp = WS-TMS-DEFAULT sono valori fissi
         in tutti i paragrafi originali, non calcolati."""
         record_avv11 = {
             "prgcens": prgcens,
-            "numelab": numelab_nuovo,
+            "numelab": ctx.ws_num_elab, #numelab_nuovo
             "dcon": ctx.dcon,
             "dinifor": ctx.dinifor,
             "dfinfor": ctx.dfinfor,
@@ -120,13 +122,13 @@ class GestiscePilota:
 
             BatchLogger.debug(  # <-- log di dettaglio, uno per ogni chiamata
                 "INSERT-PILOTA-RIGA",
-                f"Inserita riga PRGCENS={prgcens} ({CATEGORIE_GESTIONE[prgcens]}) NUMELAB={numelab_nuovo}",
+                f"Inserita riga PRGCENS={prgcens} ({CATEGORIE_GESTIONE[prgcens]}) NUMELAB={ctx.ws_num_elab}",
                 depth=2
             )
         except Exception as e:
             BatchLogger.error(
                 "INSERT-PILOTA-ERRORE",
-                f"Fallito inserimento PRGCENS={prgcens} ({CATEGORIE_GESTIONE[prgcens]}) NUMELAB={numelab_nuovo}: {e}",
+                f"Fallito inserimento PRGCENS={prgcens} ({CATEGORIE_GESTIONE[prgcens]}) NUMELAB={ctx.ws_num_elab}: {e}",
                 depth=2, is_last=True
             )
             raise
