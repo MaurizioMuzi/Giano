@@ -31,7 +31,7 @@ class ImpostaErroreAvvisoStep:
 
         try:
             # 1. Aggiorna lo stato e l'errore dell'atto corrente su ADCFRT01 e ADCFRT10
-            self._aggiorna_stato_t01(cges, catt_primario, coderr_primario, depth=depth + 1)
+            self._aggiorna_stato_t01(ctx, cges, catt_primario, coderr_primario, depth=depth + 1)
             self._aggiorna_stato_t10(cges, catt_primario, depth=depth + 1)
 
             # 2. Equivalente COBOL OPEN CURT01 -> FETCH -> AGGIORNA ALTRI ATTI CON EXX399
@@ -61,13 +61,13 @@ class ImpostaErroreAvvisoStep:
     # =========================================================================
     # METODI DI COORDINAMENTO LOGICO
     # =========================================================================
-    def _aggiorna_stato_t01(self, cges: str, catt: str, coderr: str, depth: int) -> int:
+    def _aggiorna_stato_t01(self, ctx: Any, cges: str, catt: str, coderr: str, depth: int) -> int:
         """Equivalente di PERFORM AGGIORNA-STATO-T01."""
-        return self._db_update_t01_errore(cges, catt, coderr, depth=depth)
+        return self._db_update_t01_errore(ctx, cges, catt, coderr, depth=depth)
 
-    def _aggiorna_stato_t10(self, cges: str, catt: str, depth: int) -> int:
+    def _aggiorna_stato_t10(self, ctx: Any, cges: str, catt: str, depth: int) -> int:
         """Equivalente di PERFORM AGGIORNA-STATO-T10."""
-        return self._db_update_t10_errore(cges, catt, depth=depth)
+        return self._db_update_t10_errore(ctx, cges, catt, depth=depth)
 
     def _scarta_atti_correlati_avviso(self, ctx: FormazioneAvvisoContext, cges: str, catt_escluso: str, depth: int) -> None:
         """
@@ -95,14 +95,14 @@ class ImpostaErroreAvvisoStep:
         )
 
         for catt_corr in atti_correlati:
-            self._aggiorna_stato_t01(cges, catt_corr, coderr="EXX399", depth=depth + 1)
+            self._aggiorna_stato_t01(ctx, cges, catt_corr, coderr="EXX399", depth=depth + 1)
             self._aggiorna_stato_t10(cges, catt_corr, depth=depth + 1)
 
 
     # =========================================================================
     # ACCESSI AL DATABASE (ISOLATI CON TRY-EXCEPT PUNTUALI)
     # =========================================================================
-    def _db_update_t01_errore(self, cges: str, catt: str, coderr: str, depth: int) -> int:
+    def _db_update_t01_errore(self, ctx: Any, cges: str, catt: str, coderr: str, depth: int) -> int:
         """Accesso atomico DB: aggiornamento stato e codice errore su ADCFRT01."""
         try:
             upd_t01 = (
@@ -130,7 +130,7 @@ class ImpostaErroreAvvisoStep:
             return -1
 
 
-    def _db_update_t10_errore(self, cges: str, catt: str, depth: int) -> int:
+    def _db_update_t10_errore(self, ctx: Any, cges: str, catt: str, depth: int) -> int:
         """Accesso atomico DB: aggiornamento stato articoli su ADCFRT10."""
         try:
             upd_t10 = (

@@ -78,8 +78,10 @@ class FormazioneRuoliContext:
 
     # Indicatori e contatori del ciclo di elaborazione (COBOL Flags)
     righe_elaborate_sede: int = 0
-    indic_errore: bool = False
+    indic_errore: Optional[str] = None
     indic_aggiorna: bool = False
+    indic_aggiorna_if: bool = False
+    errore: bool = False
     indic_non_trov: str = " "
 
     # =========================================================================

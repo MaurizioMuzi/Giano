@@ -1,4 +1,4 @@
-# processes/formazione_ruoli/step_stato_formazione.py
+# processes/formazione_ruoli/step_operazioni_iniziali.py
 from datetime import date, datetime
 from decimal import Decimal
 from typing import List, Any
@@ -21,7 +21,7 @@ class StatoFormazioneStep:
 
         try:
             # 1. CNTR-STATO-FORMAZIONE: Recupero finestra operativa pilota su ADCFRT18
-            rows_t18 = self._db_fetch_finestra_t18(current_system_date, fixed_dfinfor_date, depth=1)
+            rows_t18 = self._db_fetch_finestra_t18(ctx, current_system_date, fixed_dfinfor_date, depth=1)
             if not rows_t18:
                 BatchLogger.error(
                     "INI-STATO-FOR",
@@ -56,7 +56,7 @@ class StatoFormazioneStep:
             BatchLogger.separator(depth=0)
 
             # 3. ESTRAI-TASSO: Recupero del tasso vigente da TRATTAS
-            rows_tassi = self._db_fetch_tasso_trattas(current_system_date, depth=1)
+            rows_tassi = self._db_fetch_tasso_trattas(ctx, current_system_date, depth=1)
             if not rows_tassi:
                 BatchLogger.error(
                     "ESTRAI-TASSO",
@@ -96,7 +96,7 @@ class StatoFormazioneStep:
     # =========================================================================
     # ACCESSI AL DATABASE (ISOLATI CON TRY-EXCEPT PUNTUALI)
     # =========================================================================
-    def _db_fetch_finestra_t18(self, current_date: date, fixed_date: date, depth: int) -> List[Any]:
+    def _db_fetch_finestra_t18(self, ctx: FormazioneRuoliContext, current_date: date, fixed_date: date, depth: int) -> List[Any]:
         """Accesso atomico DB: recupera il record della finestra attiva da ADCFRT18 con fstfor in ('4', '5')."""
         try:
             query = (
@@ -145,7 +145,7 @@ class StatoFormazioneStep:
             return -1
 
 
-    def _db_fetch_tasso_trattas(self, current_date: date, depth: int) -> List[Any]:
+    def _db_fetch_tasso_trattas(self, ctx: FormazioneRuoliContext, current_date: date, depth: int) -> List[Any]:
         """Accesso atomico DB: recupera il primo tasso valido da TRATTAS."""
         try:
             query_tassi = (

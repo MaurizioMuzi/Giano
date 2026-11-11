@@ -1,4 +1,4 @@
-# processes/formazione_avviso/step_stato_formazione.py
+# processes/formazione_avviso/step_operazioni_iniziali.py
 from datetime import date, datetime
 from typing import List, Any
 from core.batch_logger import BatchLogger
@@ -20,7 +20,7 @@ class StatoFormazioneStep:
 
         try:
             # 1. CNTR-STATO-FORMAZIONE: Recupero della finestra operativa pilota su ADCFRT18
-            rows = self._db_fetch_finestra_t18(current_system_date, fixed_dfinfor_date, depth=1)
+            rows = self._db_fetch_finestra_t18(ctx, current_system_date, fixed_dfinfor_date, depth=1)
             if not rows:
                 BatchLogger.error(
                     "INI-STATO-FOR",
@@ -68,13 +68,13 @@ class StatoFormazioneStep:
                     BatchLogger.error("INI-STATO-FOR", f"Fallito il rollback: {rollback_err}", depth=0)
 
             ctx.indic_errore = "X"
-            return -1
+            return None
 
 
     # =========================================================================
     # ACCESSI AL DATABASE (ISOLATI CON TRY-EXCEPT PUNTUALI)
     # =========================================================================
-    def _db_fetch_finestra_t18(self, current_date: date, fixed_date: date, depth: int) -> List[Any]:
+    def _db_fetch_finestra_t18(self, ctx: FormazioneAvvisoContext, current_date: date, fixed_date: date, depth: int) -> List[Any]:
         """Accesso atomico DB: recupera il record della finestra attiva da ADCFRT18."""
         try:
             query = (
@@ -96,7 +96,7 @@ class StatoFormazioneStep:
             )
 
             ctx.indic_errore = "X"
-            return -1
+            return []
 
 
     def _db_update_inizio_formazione_t18(self, ctx: FormazioneAvvisoContext, depth: int) -> int:

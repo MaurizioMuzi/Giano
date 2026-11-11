@@ -152,7 +152,7 @@ class ElaborazioneCurjoi2Step:
                     BatchLogger.error("CURJOI2-ERR", f"Fallito il rollback: {rollback_err}", depth=depth)
 
             ctx.indic_errore = "X"
-            return -1
+            return None
 
 
     # =========================================================================
@@ -200,7 +200,7 @@ class ElaborazioneCurjoi2Step:
             )
 
             ctx.indic_errore = "X"
-            return -1
+            return iter([])
 
 
     def _cntr_key_avv(self, ctx: FormazioneAvvisoContext, depth: int = 4) -> int:
@@ -232,7 +232,7 @@ class ElaborazioneCurjoi2Step:
             )
 
             ctx.indic_errore = "X"
-            return -1
+            return []
 
 
     def _cntr_max_art(self, ctx: FormazioneAvvisoContext, depth: int = 4) -> int:
@@ -274,7 +274,7 @@ class ElaborazioneCurjoi2Step:
             )
 
             ctx.indic_errore = "X"
-            return -1
+            return []
 
 
     def _cntr_key_art(self, ctx: FormazioneAvvisoContext, depth: int = 4) -> int:
@@ -310,7 +310,7 @@ class ElaborazioneCurjoi2Step:
             )
 
             ctx.indic_errore = "X"
-            return -1
+            return []
 
 
     def _cntrl_cf_blk(self, ctx: FormazioneAvvisoContext, depth: int = 4) -> int:
@@ -351,7 +351,7 @@ class ElaborazioneCurjoi2Step:
             BatchLogger.error("DB-CNTR-BLOCCO-CF-ERR", f"Errore DB durante verifica blocco per CF {ctx.ws_cfis}: {err}", depth=depth)
 
             ctx.indic_errore = "X"
-            return -1
+            return []
 
 
     def _cntrl_tab14_cfis(self, ctx: FormazioneAvvisoContext, depth: int = 4) -> int:
@@ -361,7 +361,7 @@ class ElaborazioneCurjoi2Step:
         BatchLogger.info("CNTRL-T14-CFIS", f"WS-COUNT-CF calcolato: {count_val}", depth=depth)
         return count_val
 
-    def _db_fetch_cntrl_tab14_cfis(self, ctx: FormazioneAvvisoContext, t01_map: Any, depth: int) -> List[Any]:
+    def _db_fetch_cntrl_tab14_cfis(self, ctx: FormazioneAvvisoContext, t01_map: Any, depth: int) -> int:
         """Accesso atomico DB: verifica presenza di più avvisi per il medesimo codice fiscale."""
         t01_dataset = self.engine.dataset("ADCFRT01")
         try:
@@ -647,7 +647,7 @@ class ElaborazioneCurjoi12AStep:
             )
             ctx.indic_errore = "X"
             #raise err
-            return -1
+            return None
 
 
     # =========================================================================
@@ -676,7 +676,7 @@ class ElaborazioneCurjoi12AStep:
             )
 
             ctx.indic_errore = "X"
-            return -1
+            return iter([])
 
 
 class ElaborazioneCurjoi1Step:
@@ -693,7 +693,7 @@ class ElaborazioneCurjoi1Step:
         rows = []
 
         try:
-            for chunk in self._db_stream_curjoi1(depth=1):
+            for chunk in self._db_stream_curjoi1(ctx, depth=1):
                 for raw_row in chunk:
                     rows.append(t17_map.normalize(raw_row))
 
@@ -774,13 +774,13 @@ class ElaborazioneCurjoi1Step:
 
             ctx.indic_errore = "X"
             #raise err
-            return -1
+            return None
 
 
     # =========================================================================
     # ACCESSI AL DATABASE CURJOI-1 (ISOLATI CON TRY-EXCEPT PUNTUALI)
     # =========================================================================
-    def _db_stream_curjoi1(self, depth: int) -> Iterator[List[Any]]:
+    def _db_stream_curjoi1(self, ctx: Any, depth: int) -> Iterator[List[Any]]:
         """Accesso atomico DB: apertura cursore sedi operative su ADCTET17 con codServizio='AV'."""
         try:
             query = (
@@ -799,7 +799,7 @@ class ElaborazioneCurjoi1Step:
             BatchLogger.error("DB-STREAM-CURJOI1-ERR", f"Errore DB durante apertura cursore sedi ADCTET17: {err}", depth=depth)
 
             ctx.indic_errore = "X"
-            return -1
+            return iter([])
 
 
     def _aggiorna_tab17(self, ctx: FormazioneAvvisoContext, is_last: bool = False, depth: int = 2) -> None:
@@ -833,13 +833,13 @@ class ElaborazioneCurjoi1Step:
             return -1
 
 
-    def _aggiorna_tet17(self, ctx: FormazioneAvvisoContext, is_last: bool = False, depth: int = 1) -> None:
+    def _aggiorna_tet17(self, ctx: Any, is_last: bool = False, depth: int = 1) -> None:
         """Aggiorna massivamente lo stato del record su ADCTET17 impostando il servizio a 'IF' a fine elaborazione."""
-        righe_impattate_if = self._db_update_tet17_if(depth=depth + 1)
+        righe_impattate_if = self._db_update_tet17_if(ctx, depth=depth + 1)
         BatchLogger.info("UPD-STATO-T17", f"UPDATE ADCTET17 -> CDAS='IF' (Righe impattate: {righe_impattate_if})", depth=depth, is_last=is_last)
 
 
-    def _db_update_tet17_if(self, depth: int) -> int:
+    def _db_update_tet17_if(self, ctx: Any, depth: int) -> int:
         """Accesso atomico DB: aggiornamento massivo di fine ciclo a CDAS='IF'."""
         try:
             upd_tet17 = (

@@ -19,7 +19,7 @@ class StatisticheStep:
         BatchLogger.info("CURT17-STAT", "Elaborazione statistiche finali per stato servizio (CURT17)", depth=depth)
 
         try:
-            rows = self._db_fetch_statistiche_curt17(depth=depth + 1)
+            rows = self._db_fetch_statistiche_curt17(ctx, depth=depth + 1)
 
             if not rows:
                 BatchLogger.info("CURT17-STAT", "Nessun dato statistico disponibile su ADCTET17", depth=depth + 1)
@@ -48,13 +48,13 @@ class StatisticheStep:
             )
 
             ctx.indic_errore = "X"
-            return -1
+            return None
 
 
     # =========================================================================
     # ACCESSI AL DATABASE (ISOLATI CON TRY-EXCEPT PUNTUALI)
     # =========================================================================
-    def _db_fetch_statistiche_curt17(self, depth: int) -> List[Any]:
+    def _db_fetch_statistiche_curt17(self, ctx: Any, depth: int) -> List[Any]:
         """Accesso atomico DB: esecuzione query raggruppata su ADCTET17 (CURT17)."""
         try:
             query_curt17 = (
@@ -74,4 +74,4 @@ class StatisticheStep:
             )
 
             ctx.indic_errore = "X"
-            return -1
+            return []

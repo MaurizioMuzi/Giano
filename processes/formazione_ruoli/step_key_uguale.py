@@ -78,8 +78,6 @@ class CicloDettaglioKeyUStep:
                 # PERFORM DEINFASA-ANNULLA THRU DEINFASA-ANNULLA-EX
                 self._deinfasa_annulla(ctx, row_t01, row_t10, depth=depth + 1)
 
-
-
         except Exception as err:
             BatchLogger.error(
                 "VERIFICA-POST",
@@ -96,7 +94,7 @@ class CicloDettaglioKeyUStep:
             ctx.indic_errore = "X"
             ctx.errore = True
             #raise err
-            return -1
+            return None
 
     def _verifica_avd_post(self, ctx: FormazioneRuoliContext, row_t01: dict, depth: int) -> None:
         """
@@ -155,7 +153,7 @@ class CicloDettaglioKeyUStep:
                 depth=depth
             )
             ctx.indic_errore = "X"
-            return
+            return None
 
         finally:
             BatchLogger.debug(
@@ -340,7 +338,7 @@ class CicloDettaglioKeyUStep:
             "impCarico": ws_t09_icrc_t
         })
 
-        righe = self._db_insert_t09(record_t09, depth=depth)
+        righe = self._db_insert_t09(ctx, record_t09, depth=depth)
 
         BatchLogger.info(
             "INSERISCE-T09",
@@ -353,7 +351,7 @@ class CicloDettaglioKeyUStep:
         )
 
 
-    def _db_insert_t09(self, record_t09: Dict[str, Any], depth: int) -> int:
+    def _db_insert_t09(self, ctx: Any, record_t09: Dict[str, Any], depth: int) -> int:
         try:
             ins = self.engine.dataset("ADCFRT09").compile_insert(record_t09)
             return self.engine.execute_mutation(ins, depth=depth)
@@ -414,7 +412,7 @@ class CicloDettaglioKeyUStep:
                 depth=depth
             )
             ctx.indic_errore = "X"
-            return -1
+            return None
 
 
     def _deinfasa_annulla(self, ctx: FormazioneRuoliContext, row_t01: dict, row_t10: Optional[dict], depth: int) -> None:
@@ -470,7 +468,7 @@ class CicloDettaglioKeyUStep:
             )
 
             ctx.indic_errore = "X"
-            return -1
+            return []
 
 
     def _db_update_t01_ruolo(self, ctx: FormazioneRuoliContext, anno_ruolo: str, depth: int) -> int:

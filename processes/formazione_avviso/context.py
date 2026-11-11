@@ -30,6 +30,9 @@ class FormazioneAvvisoContext:
     count_sedi: int = 0
     count_lavori: int = 0
 
+    ws_count_cf: int = 0
+    ws_null_cf: int = 0
+
     # Dati correnti cursore CURJOI-1
     current_sede: Optional[str] = None
     current_zona: Optional[str] = None
@@ -39,8 +42,9 @@ class FormazioneAvvisoContext:
 
     # Indicatori e contatori del ciclo di elaborazione (COBOL Flags)
     righe_elaborate_sede: int = 0
-    indic_errore: bool = False
+    indic_errore: Optional[str] = None
     indic_aggiorna: bool = False
+    indic_aggiorna_if: bool = False
 
     # =========================================================================
     # CAMPI DI LAVORO (WORKING-STORAGE: IMP-COMODI-KEY)

@@ -4,16 +4,35 @@ import sys
 import json
 import logging
 from datetime import datetime
+from database.manager import DefaultConnectionProvider
 
 # Moduli di processo
+# ------------------------------------------------------------------
+# 1. Formazione Avviso
+# ------------------------------------------------------------------
+from processes.formazione_avviso.processor import FormazioneAvvisoEngineProcessor
+from processes.formazione_avviso.context import FormazioneAvvisoContext
+from processes.invio_ruoli_AdER.context import InvioRuoliAdREContext
+
+# ------------------------------------------------------------------
+# 2. Preparazione Postalizzazione
+# ------------------------------------------------------------------
 from processes.preparazione_postalizzazione.context import PreparazionePostalizzazioneContext
 from processes.preparazione_postalizzazione import PreparazionePostalizzazioneEngineProcessor
 
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# ------------------------------------------------------------------
+# 3. Formazione Ruoli
+# ------------------------------------------------------------------
+from processes.formazione_ruoli.context import FormazioneRuoliContext
+from processes.formazione_ruoli.processor import FormazioneRuoliEngineProcessor
 
-from database.manager import DefaultConnectionProvider
-from processes.formazione_avviso.processor import FormazioneAvvisoEngineProcessor
-from processes.formazione_avviso.context import FormazioneAvvisoContext
+# ------------------------------------------------------------------
+# 5. Formazione Ruoli
+# ------------------------------------------------------------------
+from processes.invio_ruoli_AdER.context import InvioRuoliAdREContext
+from processes.invio_ruoli_AdER.processor import InvioRuoliAdREEngineProcessor
+
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from config.loader import ConfigurationError
 from core.batch_logger import BatchLogger
@@ -21,10 +40,10 @@ from core.batch_logger import BatchLogger
 ELABORAZIONI_VALIDE = [
     "gestione_avvisi",
     "PDCFOAVV", # formazione_avviso
-    "PDCPOAVV", #preparazione_postalizzazione
-    "PDCFORUO", #formazione_ruoli
-    "PDCFRCRE", #firma_ruoli
-    "PDCINCRE"  #invio_ruoli_AdER
+    "PDCPOAVV", # preparazione_postalizzazione
+    "PDCFORUO", # formazione_ruoli
+    "PDCFRCRE", # firma_ruoli
+    "PDCINCRE"  # invio_ruoli_AdER
 ]
 
 
@@ -75,11 +94,23 @@ def load_config_parameters(config_path: str) -> dict:
         logging_params = cfg.get("logging", {})
 
         size_commit = cfg.get("size_commit") or batch_params.get("size_commit") or 1000
+
+        # gestione data_formazione_avviso
         raw_data = cfg.get("data_formazione_avviso") or batch_params.get("data_formazione_avviso")
         parsed_data = parse_date_param(raw_data) if raw_data else None
 
+        # gestione data_invio_ruoli
+        raw_data_invio_ruo = cfg.get("data_invio_ruoli") or batch_params.get("data_invio_ruoli")
+        parsed_data_invio_ruo = parse_date_param(raw_data_invio_ruo) if raw_data_invio_ruo else None
+
+        # gestione data_firma
+        raw_data_firma = cfg.get("data_firma") or batch_params.get("data_firma")
+        parsed_data_firma = parse_date_param(raw_data_firma) if raw_data_firma else None
+
         return {
             "data_formazione_avviso": parsed_data,
+            "data_invio_ruoli": parsed_data_invio_ruo,
+            "data_firma": parsed_data_firma,
             "size_commit": int(size_commit),
             "log_dir": logging_params.get("log_dir"),
             "log_console": logging_params.get("log_console"),
@@ -105,9 +136,9 @@ def format_elapsed_time(seconds: float) -> str:
         return f"{ore} ore, {minuti} minuti e {sec:.2f} secondi"
 
 
-def esegui_formazione_avviso(effective_sk_date, config_params, dry_run: bool = False):
+def esegui_formazione_avviso(sk_date_formazione, config_params, dry_run: bool = False):
     """Inizializza ed esegue il processore di formazione avviso."""
-    context = FormazioneAvvisoContext(sk_data_elab=effective_sk_date)
+    context = FormazioneAvvisoContext(sk_data_elab=sk_date_formazione)
     context.size_commit = config_params.get("size_commit", 1000)
 
     BatchLogger.info("ORCHESTRATORE", f"SK-DATA-ELAB operativo: {context.sk_data_elab}")
@@ -121,15 +152,51 @@ def esegui_formazione_avviso(effective_sk_date, config_params, dry_run: bool = F
     worker.run()
 
 
-def esegui_preparazione_postalizzazione(effective_sk_date, config_params, dry_run: bool = False):
+def esegui_preparazione_postalizzazione(sk_date_formazione, config_params, dry_run: bool = False):
     """Inizializza ed esegue il processore di preparazione postalizzazione."""
-    context = PreparazionePostalizzazioneContext(sk_data_elab=effective_sk_date)
+    context = PreparazionePostalizzazioneContext(sk_data_elab=sk_date_formazione)
     context.size_commit = config_params.get("size_commit", 1000)
 
     BatchLogger.info("ORCHESTRATORE", f"SK-DATA-ELAB operativo: {context.sk_data_elab}")
     BatchLogger.info("ORCHESTRATORE", f"Soglia COMMIT parziale configurata: {context.size_commit} record")
 
     worker = PreparazionePostalizzazioneEngineProcessor(
+        context=context,
+        dry_run=dry_run
+    )
+    worker.size_commit = context.size_commit
+    worker.run()
+
+
+def esegui_formazione_ruoli(sk_date_formazione, config_params, dry_run: bool = False):
+    """Inizializza ed esegue il processore di formazione ruoli."""
+    context = FormazioneRuoliContext(sk_data_elab=sk_date_formazione)
+    context.size_commit = config_params.get("size_commit", 1000)
+
+    BatchLogger.info("ORCHESTRATORE", f"SK-DATA-ELAB operativo: {context.sk_data_elab}")
+    BatchLogger.info("ORCHESTRATORE", f"Soglia COMMIT parziale configurata: {context.size_commit} record")
+
+    worker = FormazioneRuoliEngineProcessor(
+        context=context,
+        dry_run=dry_run
+    )
+    worker.size_commit = context.size_commit
+    worker.run()
+
+
+def esegui_invio_ruoli(sk_date_invio, sk_date_firma, config_params, dry_run: bool = False):
+    """Inizializza ed esegue il processore di invio ruoli con le due date parametri."""
+    context = InvioRuoliAdREContext(
+        sk_data_invio=sk_date_invio,
+        sk_data_firma=sk_date_firma
+    )
+    context.size_commit = config_params.get("size_commit", 1000)
+
+    BatchLogger.info("ORCHESTRATORE", f"SK-DATA-INVIO operativo: {context.sk_data_invio}")
+    BatchLogger.info("ORCHESTRATORE", f"SK-DATA-FIRMA operativo: {context.sk_data_firma} (Risolto: {context.dinf_cdcfrt01})")
+    BatchLogger.info("ORCHESTRATORE", f"Soglia COMMIT parziale configurata: {context.size_commit} record")
+
+    worker = InvioRuoliAdREEngineProcessor(
         context=context,
         dry_run=dry_run
     )
@@ -184,40 +251,58 @@ def main():
     if extra_param:
         BatchLogger.info("ORCHESTRATORE", f"Parametro extra: {extra_param}")
 
-    effective_sk_date = config_params.get("data_formazione_avviso")
+    # Risoluzione della data_formazione_avviso sfruttando dinf_cdcfrt01 del Context
+    raw_sk_date = config_params.get("data_formazione_avviso")
+    sk_date_formazione = FormazioneAvvisoContext(sk_data_elab=raw_sk_date).dinf_cdcfrt01
+
     BatchLogger.info("ORCHESTRATORE", f"Target di Elaborazione Selezionato: [{operation.upper()}]")
+    BatchLogger.info("ORCHESTRATORE", f"Data Formazione Avviso risolta (dinf_cdcfrt01): {sk_date_formazione}")
+
+    # Risoluzione della data_invio_ruoli
+    raw_sk_date_invio = config_params.get("data_invio_ruoli")
+    sk_date_invio_ruo = parse_date_param(raw_sk_date_invio) if isinstance(raw_sk_date_invio, str) else raw_sk_date_invio
+
+    # Risoluzione della data_firma sfruttando dinf_cdcfrt01 del Context
+    raw_sk_date_firma = config_params.get("data_firma")
+    parsed_firma = parse_date_param(raw_sk_date_firma) if isinstance(raw_sk_date_firma, str) else raw_sk_date_firma
+    sk_date_firma = InvioRuoliAdREContext(sk_data_firma=parsed_firma).dinf_cdcfrt01
 
     exit_code = 0
     try:
         if operation == "PDCFOAVV":
             BatchLogger.info("Blocco FORMAZIONE-AVVISO", "Avvio fase di Formazione Avviso...")
-            esegui_formazione_avviso(effective_sk_date, config_params)
+            esegui_formazione_avviso(sk_date_formazione, config_params)
 
-        elif operation == "postalizzazione":
+        elif operation in ("PDCPOAVV", "postalizzazione"):
             BatchLogger.info("Blocco POSTALIZZAZIONE", "Avvio fase di Postalizzazione...")
-            esegui_preparazione_postalizzazione(effective_sk_date, config_params)
+            esegui_preparazione_postalizzazione(sk_date_formazione, config_params)
 
-        elif operation == "formazione_ruoli":
+        elif operation in ("PDCFORUO", "formazione_ruoli"):
             BatchLogger.info("Blocco FORMAZIONE-RUOLI", "Avvio fase di Formazione Ruoli...")
+            esegui_formazione_ruoli(sk_date_formazione, config_params)
 
-        elif operation == "firma_ruoli":
+        elif operation in ("PDCFRCRE", "firma_ruoli"):
             BatchLogger.info("Blocco FIRMA-RUOLI", "Avvio fase di Firma Ruoli...")
 
-        elif operation == "invio_ruoli_AdER":
+        elif operation in ("PDCINCRE", "invio_ruoli_AdER"):
             BatchLogger.info("Blocco INVIO-ADER", "Avvio fase di Invio Ruoli ad Agenzia delle Entrate-Riscossione...")
+            esegui_invio_ruoli(sk_date_invio_ruo, sk_date_firma, config_params)
 
         elif operation == "gestione_avvisi":
             BatchLogger.info("WORKFLOW-COMPLETO", "Esecuzione sequenziale di tutte le fasi batch...")
 
             BatchLogger.info("WORKFLOW-COMPLETO", ">> [1/5] Formazione Avviso")
-            esegui_formazione_avviso(effective_sk_date, config_params)
+            esegui_formazione_avviso(sk_date_formazione, config_params)
 
             BatchLogger.info("WORKFLOW-COMPLETO", ">> [2/5] Postalizzazione")
-            esegui_preparazione_postalizzazione(effective_sk_date, config_params)
+            esegui_preparazione_postalizzazione(sk_date_formazione, config_params)
 
             BatchLogger.info("WORKFLOW-COMPLETO", ">> [3/5] Formazione Ruoli")
+            esegui_formazione_ruoli(sk_date_formazione, config_params)
+
             BatchLogger.info("WORKFLOW-COMPLETO", ">> [4/5] Firma Ruoli")
             BatchLogger.info("WORKFLOW-COMPLETO", ">> [5/5] Invio Ruoli AdER")
+            esegui_invio_ruoli(sk_date_invio_ruo, sk_date_firma, config_params)
 
     except ConfigurationError as env_error:
         BatchLogger.error("ERR_ENVIRONMENT", str(env_error))

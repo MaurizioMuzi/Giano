@@ -23,7 +23,7 @@ class AggiornaTabelleStep:
         self.engine = engine
         self.size_commit = getattr(engine, "size_commit", getattr(engine, "commit_threshold", 1000))
 
-    def _verifica_e_committa_lotto(self, depth: int) -> None:
+    def _verifica_e_committa_lotto(self, ctx: Any, depth: int) -> None:
         """Incrementa il contatore globale e fa il commit parziale usando la soglia configurata."""
         if not hasattr(self.engine, "_record_counter"):
             self.engine._record_counter = 0
@@ -43,7 +43,7 @@ class AggiornaTabelleStep:
                 BatchLogger.error("BATCH-COMMIT", f"Errore durante l'esecuzione del COMMIT parziale: {err}", depth=depth)
 
                 ctx.indic_errore = "X"
-                return -1
+                return None
 
 
     def execute(self, ctx: FormazioneAvvisoContext, depth: int = 4) -> None:
@@ -90,7 +90,7 @@ class AggiornaTabelleStep:
 
             ctx.indic_errore = "X"
             ctx.ws_erravv = "ERR-UPD"
-            return -1
+            return None
 
 
     # =========================================================================
@@ -163,6 +163,7 @@ class AggiornaTabelleStep:
                     continue
 
                 self._db_update_t14(
+                    ctx=ctx,
                     cges=row_t01.get("gestione"),
                     catt=row_t01.get("codiceAtto"),
                     scog=ws_cognome,
@@ -210,7 +211,7 @@ class AggiornaTabelleStep:
             BatchLogger.error("DB-FETCH-MASTER-T14", f"Errore recupero master T14 per avviso {ctx.ws_annoavv}/{ctx.ws_progavv}: {err}", depth=depth)
 
             ctx.indic_errore = "X"
-            return -1
+            return []
 
 
     def _db_stream_dettaglio_t14(self, ctx: FormazioneAvvisoContext, t14_map: Any, depth: int) -> Iterator[List[Any]]:
@@ -241,10 +242,10 @@ class AggiornaTabelleStep:
             BatchLogger.error("DB-STREAM-T14", f"Errore apertura cursore dettaglio T14 per avviso {ctx.ws_annoavv}/{ctx.ws_progavv}: {err}", depth=depth)
 
             ctx.indic_errore = "X"
-            return -1
+            return err
 
 
-    def _db_update_t14(self, cges: str, catt: str, scog: str, snom: str, sindatr: str,
+    def _db_update_t14(self, ctx: Any, cges: str, catt: str, scog: str, snom: str, sindatr: str,
                        cproatr: str, ccomatr: str, ccapatr: str, slocatr: str, depth: int) -> int:
         try:
             upd = (
@@ -281,7 +282,7 @@ class AggiornaTabelleStep:
         cod_comune = getattr(ctx, "ws_codcomune", "")
         t02_map = self.engine.get_table_map("ADCAVV02")
 
-        rows_cesa = self._db_fetch_concessione_belfiore(cod_comune, depth=depth)
+        rows_cesa = self._db_fetch_concessione_belfiore(ctx=ctx, cod_comune=cod_comune, depth=depth)
         if rows_cesa:
             row_t02 = t02_map.normalize(rows_cesa[0])
             ws_cesanew = str(row_t02.get("codConcessione") or "").strip()
@@ -300,7 +301,7 @@ class AggiornaTabelleStep:
         t_avv01_map = self.engine.get_table_map("ADCAVV01")
 
         try:
-            rows_v01 = self._db_fetch_prog_avv01(str(ctx.ws_cesaavv), str(ws_annoruo_dec), depth=depth)
+            rows_v01 = self._db_fetch_prog_avv01(ctx, str(ctx.ws_cesaavv), str(ws_annoruo_dec), depth=depth)
 
             if not rows_v01:
                 BatchLogger.info(
@@ -308,7 +309,7 @@ class AggiornaTabelleStep:
                     f"Record ADCAVV01 assente per CESAAVV={ctx.ws_cesaavv}, ANNO={ws_annoruo_dec}. Inserimento nuovo progressivo.",
                     depth=depth
                 )
-                self._db_insert_avv01(str(ctx.ws_cesaavv), str(ws_annoruo_dec), depth=depth + 1)
+                self._db_insert_avv01(ctx, str(ctx.ws_cesaavv), str(ws_annoruo_dec), depth=depth + 1)
                 ctx.ws_nprgruo_dec = 0
             else:
                 row_avv01 = t_avv01_map.normalize(rows_v01[0])
@@ -333,7 +334,7 @@ class AggiornaTabelleStep:
             ctx.ws_nchkruo = str(ws_resto).zfill(2)
             ctx.ws_soggruo = "000"
 
-            self._db_update_prog_avv01(str(ctx.ws_cesaavv), str(ws_annoruo_dec), ctx.ws_nprgruo_dec, depth=depth + 1)
+            self._db_update_prog_avv01(ctx, str(ctx.ws_cesaavv), str(ws_annoruo_dec), ctx.ws_nprgruo_dec, depth=depth + 1)
 
             identificativo_completo = f"{pri15ruo_str}{ctx.ws_nchkruo}{ctx.ws_soggruo}"
             ctx.ws_idavvruo = identificativo_completo[:20]
@@ -355,7 +356,7 @@ class AggiornaTabelleStep:
             ctx.ws_erravv = "EXX001"
             raise err
 
-    def _db_fetch_concessione_belfiore(self, cod_comune: str, depth: int) -> List[Any]:
+    def _db_fetch_concessione_belfiore(self, ctx: Any, cod_comune: str, depth: int) -> List[Any]:
         try:
             query = (
                 self.engine.dataset("ADCAVV02")
@@ -371,7 +372,7 @@ class AggiornaTabelleStep:
             BatchLogger.error("DB-FETCH-AVV02", f"Errore recupero concessione per Belfiore={cod_comune}: {err}", depth=depth)
 
             ctx.indic_errore = "X"
-            return -1
+            return []
 
 
     def _db_update_t01_cesa(self, ctx: FormazioneAvvisoContext, depth: int) -> int:
@@ -402,7 +403,7 @@ class AggiornaTabelleStep:
             return -1
 
 
-    def _db_fetch_prog_avv01(self, cod_concessione: str, anno_avviso: str, depth: int) -> List[Any]:
+    def _db_fetch_prog_avv01(self, ctx: Any, cod_concessione: str, anno_avviso: str, depth: int) -> List[Any]:
         try:
             query = (
                 self.engine.dataset("ADCAVV01")
@@ -418,10 +419,10 @@ class AggiornaTabelleStep:
             BatchLogger.error("DB-FETCH-AVV01", f"Errore lettura progressivo ADCAVV01 [CESA={cod_concessione}, ANNO={anno_avviso}]: {err}", depth=depth)
 
             ctx.indic_errore = "X"
-            return -1
+            return []
 
 
-    def _db_insert_avv01(self, cod_concessione: str, anno_avviso: str, depth: int) -> int:
+    def _db_insert_avv01(self, ctx: Any, cod_concessione: str, anno_avviso: str, depth: int) -> int:
         try:
             ins = self.engine.dataset("ADCAVV01").compile_insert({
                 "codConcessione": cod_concessione,
@@ -443,7 +444,7 @@ class AggiornaTabelleStep:
             return -1
 
 
-    def _db_update_prog_avv01(self, cod_concessione: str, anno_avviso: str, nuovo_prog: int, depth: int) -> int:
+    def _db_update_prog_avv01(self, ctx: Any, cod_concessione: str, anno_avviso: str, nuovo_prog: int, depth: int) -> int:
         try:
             upd = (
                 self.engine.dataset("ADCAVV01")
@@ -514,7 +515,7 @@ class AggiornaTabelleStep:
             BatchLogger.error("DB-STREAM-CURT01", f"Errore apertura cursore CURT01 per avviso {ctx.ws_annoavv}/{ctx.ws_progavv}: {err}", depth=depth)
 
             ctx.indic_errore = "X"
-            return -1
+            return iter([])
 
 
     def _elabora_singola_partita_curt01(self, ctx: FormazioneAvvisoContext, row_t01: dict, identificativo: str,
@@ -573,7 +574,7 @@ class AggiornaTabelleStep:
         righe_aggiornate = 0
         ctx.ws_itrbavv = Decimal("0")
 
-        for chunk in self._db_stream_curt10(cges, catt, depth=depth):
+        for chunk in self._db_stream_curt10(ctx, cges, catt, depth=depth):
             for raw_row in chunk:
                 row_t10 = t10_map.normalize(raw_row)
                 nprgart = row_t10.get("progArticolo")
@@ -587,6 +588,7 @@ class AggiornaTabelleStep:
                 itrb_carico = row_t10.get("impTributoCalc") or itrb_val
 
                 self._db_update_tab10_articolo(
+                    ctx=ctx,
                     cges=cges,
                     catt=catt,
                     nprgart=nprgart,
@@ -595,7 +597,7 @@ class AggiornaTabelleStep:
                     depth=depth
                 )
                 righe_aggiornate += 1
-                self._verifica_e_committa_lotto(depth=depth)
+                self._verifica_e_committa_lotto(ctx=ctx, depth=depth)
 
         BatchLogger.debug(
             "AGGIORNA-TAB10",
@@ -604,10 +606,10 @@ class AggiornaTabelleStep:
         )
 
         ctx.indic_errore = "X"
-        return -1
+        return None
 
 
-    def _db_stream_curt10(self, cges: str, catt: str, depth: int) -> Iterator[List[Any]]:
+    def _db_stream_curt10(self, ctx: Any, cges: str, catt: str, depth: int) -> Iterator[List[Any]]:
         try:
             query = (
                 self.engine.dataset("ADCFRT10")
@@ -624,10 +626,10 @@ class AggiornaTabelleStep:
             BatchLogger.error("DB-STREAM-CURT10", f"Errore apertura cursore CURT10 [CGES={cges}, CATT={catt}]: {err}", depth=depth)
 
             ctx.indic_errore = "X"
-            return -1
+            return iter([])
 
 
-    def _db_update_tab10_articolo(self, cges: str, catt: str, nprgart: Any, prog_carico: int,
+    def _db_update_tab10_articolo(self, ctx: Any, cges: str, catt: str, nprgart: Any, prog_carico: int,
                                   itrb_carico: Decimal, depth: int) -> int:
         try:
             upd = (
@@ -699,13 +701,13 @@ class AggiornaTabelleStep:
             )
 
             ctx.indic_errore = "X"
-            return -1
+            return None
 
 
     def _inserisci_spese_t01(self, ctx: FormazioneAvvisoContext, cges: str, catt: str, id_avviso: str,
                              depth: int) -> dict:
         t01_map = self.engine.get_table_map("ADCFRT01")
-        rows = self._db_fetch_t01_master_spese(cges, catt, depth=depth)
+        rows = self._db_fetch_t01_master_spese(ctx, cges, catt, depth=depth)
 
         if not rows:
             BatchLogger.warn("INSERISCI-SPESE-T01", f"Record master ADCFRT01 non trovato per CGES={cges} CATT={catt}", depth=depth)
@@ -769,14 +771,14 @@ class AggiornaTabelleStep:
         record_t01["numEspAvviso"] = num_partita + 1
         record_t01.pop("idAvvisoRuolo", None)
 
-        righe = self._db_insert_t01(record_t01, depth=depth)
-        self._verifica_e_committa_lotto(depth=depth)
+        righe = self._db_insert_t01(ctx, record_t01, depth=depth)
+        self._verifica_e_committa_lotto(ctx=ctx, depth=depth)
 
         BatchLogger.debug("INSERISCI-SPESE-T01", f"ADCFRT01 inserito con CATT={id_avviso} (Righe: {righe})", depth=depth)
         return record_t01
 
 
-    def _db_fetch_t01_master_spese(self, cges: str, catt: str, depth: int) -> List[Any]:
+    def _db_fetch_t01_master_spese(self, ctx: Any, cges: str, catt: str, depth: int) -> List[Any]:
         try:
             query = (
                 self.engine.dataset("ADCFRT01")
@@ -804,10 +806,10 @@ class AggiornaTabelleStep:
             BatchLogger.error("DB-FETCH-T01-SPESE", f"Errore lettura master T01 per spese [CGES={cges}, CATT={catt}]: {err}", depth=depth)
 
             ctx.indic_errore = "X"
-            return -1
+            return []
 
 
-    def _db_insert_t01(self, record_t01: Dict[str, Any], depth: int) -> int:
+    def _db_insert_t01(self, ctx: Any, record_t01: Dict[str, Any], depth: int) -> int:
         try:
             ins = self.engine.dataset("ADCFRT01").compile_insert(record_t01)
             return self.engine.execute_mutation(ins, depth=depth)
@@ -823,7 +825,7 @@ class AggiornaTabelleStep:
         t10_map = self.engine.get_table_map("ADCFRT10")
         n_nprgart = getattr(ctx, "n_nprgart", 1)
 
-        rows = self._db_fetch_t10_master_spese(cges, catt, n_nprgart, depth=depth)
+        rows = self._db_fetch_t10_master_spese(ctx, cges, catt, n_nprgart, depth=depth)
         if not rows:
             BatchLogger.warn(
                 "INSERISCI-SPESE-T10",
@@ -908,8 +910,8 @@ class AggiornaTabelleStep:
         itrb_val = Decimal(str(record_t10.get("impTributo") or 0))
         ctx.ws_itrbavv = getattr(ctx, "ws_itrbavv", Decimal("0")) + itrb_val
 
-        righe = self._db_insert_t10(record_t10, depth=depth)
-        self._verifica_e_committa_lotto(depth=depth)
+        righe = self._db_insert_t10(ctx, record_t10, depth=depth)
+        self._verifica_e_committa_lotto(ctx=ctx, depth=depth)
 
         BatchLogger.debug(
             "INSERISCI-SPESE-T10",
@@ -918,7 +920,7 @@ class AggiornaTabelleStep:
         )
 
 
-    def _db_fetch_t10_master_spese(self, cges: str, catt: str, nprgart: Any, depth: int) -> List[Any]:
+    def _db_fetch_t10_master_spese(self, ctx: Any, cges: str, catt: str, nprgart: Any, depth: int) -> List[Any]:
         try:
             query = (
                 self.engine.dataset("ADCFRT10")
@@ -949,10 +951,10 @@ class AggiornaTabelleStep:
             BatchLogger.error("DB-FETCH-T10-SPESE", f"Errore lettura master T10 [CGES={cges}, CATT={catt}, NPRG={nprgart}]: {err}", depth=depth)
 
             ctx.indic_errore = "X"
-            return -1
+            return []
 
 
-    def _db_insert_t10(self, record_t10: Dict[str, Any], depth: int) -> int:
+    def _db_insert_t10(self, ctx: Any, record_t10: Dict[str, Any], depth: int) -> int:
         try:
             ins = self.engine.dataset("ADCFRT10").compile_insert(record_t10)
             return self.engine.execute_mutation(ins, depth=depth)
@@ -966,7 +968,7 @@ class AggiornaTabelleStep:
     def _inserisci_spese_t14(self, ctx: FormazioneAvvisoContext, cges: str, catt: str, id_avviso: str,
                              depth: int) -> None:
         t14_map = self.engine.get_table_map("ADCFRT14")
-        rows = self._db_fetch_t14_master_spese(cges, catt, depth=depth)
+        rows = self._db_fetch_t14_master_spese(ctx, cges, catt, depth=depth)
 
         if not rows:
             BatchLogger.warn("INSERISCI-SPESE-T14", f"Anagrafica ADCFRT14 non trovata per CGES={cges}, CATT={catt}", depth=depth)
@@ -988,8 +990,8 @@ class AggiornaTabelleStep:
             except (ValueError, TypeError):
                 record_t14["numeroChilometro"] = 0
 
-        righe = self._db_insert_t14(record_t14, depth=depth)
-        self._verifica_e_committa_lotto(depth=depth)
+        righe = self._db_insert_t14(ctx, record_t14, depth=depth)
+        self._verifica_e_committa_lotto(ctx=ctx, depth=depth)
 
         BatchLogger.debug(
             "INSERISCI-SPESE-T14",
@@ -998,7 +1000,7 @@ class AggiornaTabelleStep:
         )
 
 
-    def _db_fetch_t14_master_spese(self, cges: str, catt: str, depth: int) -> List[Any]:
+    def _db_fetch_t14_master_spese(self, ctx: Any, cges: str, catt: str, depth: int) -> List[Any]:
         try:
             query = (
                 self.engine.dataset("ADCFRT14")
@@ -1023,10 +1025,10 @@ class AggiornaTabelleStep:
                               )
 
             ctx.indic_errore = "X"
-            return -1
+            return []
 
 
-    def _db_insert_t14(self, record_t14: Dict[str, Any], depth: int) -> int:
+    def _db_insert_t14(self, ctx: Any, record_t14: Dict[str, Any], depth: int) -> int:
         try:
             ins = self.engine.dataset("ADCFRT14").compile_insert(record_t14)
             return self.engine.execute_mutation(ins, depth=depth)
@@ -1114,8 +1116,8 @@ class AggiornaTabelleStep:
             "codErroreEsito": " " * 189
         }
 
-        righe = self._db_insert_t03(record_t03, depth=depth)
-        self._verifica_e_committa_lotto(depth=depth)
+        righe = self._db_insert_t03(ctx, record_t03, depth=depth)
+        self._verifica_e_committa_lotto(ctx=ctx, depth=depth)
 
         BatchLogger.debug(
             "INSERISCI-TAB03",
@@ -1123,7 +1125,7 @@ class AggiornaTabelleStep:
             depth=depth
         )
 
-    def _db_insert_t03(self, record_t03: Dict[str, Any], depth: int) -> int:
+    def _db_insert_t03(self, ctx: Any, record_t03: Dict[str, Any], depth: int) -> int:
         try:
             ins = self.engine.dataset("ADCFRT03").compile_insert(record_t03)
             return self.engine.execute_mutation(ins, depth=depth)

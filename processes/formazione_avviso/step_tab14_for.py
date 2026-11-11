@@ -92,7 +92,7 @@ class CicloDettaglioTab14Step:
 
             ctx.indic_errore = "X"
             #raise err
-            return -1
+            return None
 
 
     # =========================================================================
@@ -131,7 +131,7 @@ class CicloDettaglioTab14Step:
             )
 
             ctx.indic_errore = "X"
-            return -1
+            return iter([])
 
 
 class AllineamentoAnagrafeStep:
@@ -184,7 +184,7 @@ class AllineamentoAnagrafeStep:
                     BatchLogger.error("ALLINEA-INDIRIZZO-FOR", f"Fallito il rollback: {rollback_err}", depth=depth)
 
             ctx.indic_errore = "X"
-            return -1
+            return None
 
 
     # =========================================================================
@@ -223,4 +223,4 @@ class AllineamentoAnagrafeStep:
             )
 
             ctx.indic_errore = "X"
-            return -1
+            return []
