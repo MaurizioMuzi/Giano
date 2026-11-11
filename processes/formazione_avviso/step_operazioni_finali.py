@@ -40,7 +40,7 @@ class OperazioniFinaliStep:
                     BatchLogger.error("OPERAZIONI-FINALI", f"Fallito il rollback: {rollback_err}", depth=depth)
 
             ctx.indic_errore = "X"
-            return -1
+            return None
 
 
     # =========================================================================

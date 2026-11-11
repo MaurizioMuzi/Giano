@@ -101,7 +101,7 @@ class CicloDettaglioKeyDStep:
                     BatchLogger.error("ROTTURA-CHIAVE-ERR", f"Fallito il rollback: {rollback_err}", depth=depth)
 
             ctx.indic_errore = "X"
-            return -1
+            return None
 
     def _aggiorna_tabelle(self, ctx: FormazioneRuoliContext, row_t01: Optional[dict] = None, row_t10: Optional[dict] = None, depth: int = 5) -> None:
         """
@@ -378,7 +378,7 @@ class CicloDettaglioKeyDStep:
             )
 
             ctx.indic_errore = "X"
-            return -1
+            return []
 
 
     def _db_leggi_tab03(self, ctx: FormazioneRuoliContext, depth: int) -> List[Any]:
@@ -402,7 +402,7 @@ class CicloDettaglioKeyDStep:
 
             rows = self.engine.fetch(query_t03, depth=depth)
             if not rows:
-                return None
+                return []
 
             t03_map = self.engine.get_table_map("ADCFRT03")
             return t03_map.normalize(rows[0]) if hasattr(t03_map, "normalize") else rows[0]
@@ -414,7 +414,7 @@ class CicloDettaglioKeyDStep:
                 depth=depth
             )
             ctx.indic_errore = "X"
-            return -1
+            return []
 
 
     def _db_delete_tab03(self, ctx: Any, row_t01: dict, depth: int) -> int:
@@ -489,7 +489,7 @@ class CicloDettaglioKeyDStep:
             )
 
             ctx.indic_errore = "X"
-            return -1
+            return []
 
 
     def _db_insert_nrav(self, ctx: Any, depth: int) -> int:

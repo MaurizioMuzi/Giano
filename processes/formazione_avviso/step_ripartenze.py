@@ -22,11 +22,11 @@ class GestioneRipartenzeStep:
 
         try:
             # 1. CONTA-SEDI: Recupera il conteggio complessivo delle sedi su ADCTET17
-            res_sedi = self._db_count_sedi(depth=1)
+            res_sedi = self._db_count_sedi(ctx, depth=1)
             ctx.count_sedi = int(list(res_sedi[0].values())[0]) if res_sedi else 0
 
             # 2. CONTA-LAVORI: Recupera il conteggio dei lavori qualificati (IF/AV)
-            res_lavori = self._db_count_lavori(depth=1)
+            res_lavori = self._db_count_lavori(ctx, depth=1)
             ctx.count_lavori = int(list(res_lavori[0].values())[0]) if res_lavori else 0
 
             BatchLogger.info(
@@ -37,7 +37,7 @@ class GestioneRipartenzeStep:
 
             # 3. AGGIORNA-LAVORI: Se tutti i lavori sono qualificati, esegue il reset massivo
             if ctx.count_lavori == ctx.count_sedi and ctx.count_sedi > 0:
-                righe_aggiornate = self._db_update_reset_lavori(depth=1)
+                righe_aggiornate = self._db_update_reset_lavori(ctx, depth=1)
                 BatchLogger.info(
                     "RESET-LAV-T17",
                     f"WS-COUNT = WS-COUNT-SED -> Reset massivo eseguito. Impattati: {righe_aggiornate}",
@@ -74,7 +74,7 @@ class GestioneRipartenzeStep:
     # =========================================================================
     # ACCESSI AL DATABASE (ISOLATI CON TRY-EXCEPT PUNTUALI)
     # =========================================================================
-    def _db_count_sedi(self, depth: int) -> List[Any]:
+    def _db_count_sedi(self, ctx: Any, depth: int) -> List[Any]:
         """Accesso atomico DB: conteggio totale record (sedi) in ADCTET17."""
         try:
             q_sedi = (
@@ -88,10 +88,10 @@ class GestioneRipartenzeStep:
             BatchLogger.error("DB-COUNT-SEDI-ERR", f"Errore DB durante conteggio totale record ADCTET17: {err}", depth=depth)
 
             ctx.indic_errore = "X"
-            return -1
+            return []
 
 
-    def _db_count_lavori(self, depth: int) -> List[Any]:
+    def _db_count_lavori(self, ctx: Any, depth: int) -> List[Any]:
         """Accesso atomico DB: conteggio record qualificati con codServizio in ('IF', 'AV') in ADCTET17."""
         try:
             q_lavori = (
@@ -106,10 +106,10 @@ class GestioneRipartenzeStep:
             BatchLogger.error("DB-COUNT-LAVORI-ERR", f"Errore DB durante conteggio record qualificati ADCTET17: {err}", depth=depth)
 
             ctx.indic_errore = "X"
-            return -1
+            return []
 
 
-    def _db_update_reset_lavori(self, depth: int) -> int:
+    def _db_update_reset_lavori(self, ctx: Any, depth: int) -> int:
         """Accesso atomico DB: reset massivo dei lavori su ADCTET17 impostando codServizio='AV'."""
         try:
             upd_reset = (

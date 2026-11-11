@@ -4,9 +4,9 @@
     "sqlserver": "ADCAVV11"
   },
   "columns": {
-    "prgcens": {
+    "progCens": {
       "db2": "PRGCENS",
-      "sqlserver": "ProgressCens",
+      "sqlserver": "ProgCens",
       "logical_type": "int"
     },
     "numelab": {
@@ -14,54 +14,54 @@
       "sqlserver": "NumeroElab",
       "logical_type": "int"
     },
-    "dcon": {
+    "dataConsegna": {
       "db2": "DCON",
-      "sqlserver": "DataConsolidamento",
+      "sqlserver": "DataConsegna",
       "logical_type": "date"
     },
-    "dinifor": {
+    "dataIniForm": {
       "db2": "DINIFOR",
-      "sqlserver": "DataInizioFormazione",
+      "sqlserver": "DataIniForm",
       "logical_type": "date"
     },
-    "dfinfor": {
+    "dataFinForm": {
       "db2": "DFINFOR",
-      "sqlserver": "DataFineFormazione",
+      "sqlserver": "DataFinForm",
       "logical_type": "date"
     },
-    "cstacom" : {
+    "codStatoElab" : {
       "db2": "CSTACOM",
-      "sqlserver":"StatoElabComune",
+      "sqlserver":"CodStatoElab",
       "logical_type": "string",
       "padding": true
     },
-    "cstaavv" : {
+    "codStatoAvviso" : {
       "db2": "CSTAAVV",
-      "sqlserver":"StatoAvvisi",
+      "sqlserver":"CodStatoAvviso",
       "logical_type": "string",
       "padding": true
     },
-    "tms_finform" : {
+    "timestampFinForm" : {
       "db2": "TMS_FINFORM",
-      "sqlserver":"TimestampFineFormazione",
+      "sqlserver":"TimestampFinForm",
       "logical_type": "datetime",
       "padding": true
     },
-    "tms_finlot" : {
+    "timestampFinPost" : {
       "db2": "TMS_FINLOT",
-      "sqlserver":"TimestampFineLavorazione",
+      "sqlserver":"TimestampFinPost",
       "logical_type": "datetime",
       "padding": true
     },
-    "tms_inveq" : {
+    "timestampInvioEQ" : {
       "db2": "TMS_INVEQ",
-      "sqlserver":"TimestampInvio",
+      "sqlserver":"TimestampInvioEQ",
       "logical_type": "datetime",
       "padding": true
     },
-      "flg_pdf" : {
+      "flgPdf" : {
       "db2": "FLG_PDF",
-      "sqlserver":"FLG_PDF",
+      "sqlserver":"FlgPdf",
       "logical_type": "string",
       "padding": true
     }

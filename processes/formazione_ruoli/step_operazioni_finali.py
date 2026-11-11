@@ -1,7 +1,7 @@
 # processes/formazione_avviso/step_operazioni_finali.py
 from datetime import datetime
 from core.batch_logger import BatchLogger
-from .context import FormazioneAvvisoContext
+from .context import FormazioneRuoliContext
 
 
 class OperazioniFinaliStep:
@@ -13,7 +13,7 @@ class OperazioniFinaliStep:
     def __init__(self, engine):
         self.engine = engine
 
-    def execute(self, ctx: FormazioneAvvisoContext, depth: int = 1) -> None:
+    def execute(self, ctx: FormazioneRuoliContext, depth: int = 1) -> None:
         BatchLogger.info("OPERAZIONI-FINALI", "Elaborazione finale del flusso", depth=depth)
 
         try:
@@ -40,13 +40,13 @@ class OperazioniFinaliStep:
                     BatchLogger.error("OPERAZIONI-FINALI", f"Fallito il rollback: {rollback_err}", depth=depth)
 
             ctx.indic_errore = "X"
-            return -1
+            return None
 
 
     # =========================================================================
     # ACCESSI AL DATABASE (ISOLATI CON TRY-EXCEPT PUNTUALI)
     # =========================================================================
-    def _db_update_pilota_t18(self, ctx: FormazioneAvvisoContext, depth: int) -> int:
+    def _db_update_pilota_t18(self, ctx: FormazioneRuoliContext, depth: int) -> int:
         """Accesso atomico DB: aggiornamento stato finale pilota su ADCFRT18 con stato = 2 (TERMINATO)."""
         try:
             upd = (

@@ -28,7 +28,7 @@ class GestioneRipartenzeStep:
             current_system_date = date.today()
             fixed_dfinfor_date = date(2026, 8, 24)
 
-            rows = self._db_fetch_pilota_v11(current_system_date, fixed_dfinfor_date, depth=1)
+            rows = self._db_fetch_pilota_v11(ctx, current_system_date, fixed_dfinfor_date, depth=1)
             if not rows:
                 BatchLogger.error(
                     "CHK-RIPARTENZE",
@@ -56,11 +56,11 @@ class GestioneRipartenzeStep:
             self._db_commit(depth=1)
 
             # 3. CONTA-SEDI
-            res_sedi = self._db_count_sedi_t17(depth=1)
+            res_sedi = self._db_count_sedi_t17(ctx, depth=1)
             ctx.count_sedi = int(list(res_sedi[0].values())[0]) if res_sedi else 0
 
             # 4. CONTA-LAVORI con CDAS = IN
-            res_lavori_in = self._db_count_lavori_t17("IN", depth=1)
+            res_lavori_in = self._db_count_lavori_t17(ctx,"IN", depth=1)
             ctx.count_lavori_in = int(list(res_lavori_in[0].values())[0]) if res_lavori_in else 0
 
             BatchLogger.info(
@@ -70,7 +70,7 @@ class GestioneRipartenzeStep:
             )
 
             if ctx.count_lavori_in == ctx.count_sedi and ctx.count_sedi > 0:
-                righe_aggiornate = self._db_update_reset_lavori_t17(depth=1)
+                righe_aggiornate = self._db_update_reset_lavori_t17(ctx, depth=1)
                 BatchLogger.info(
                     "RESET-LAV-T17",
                     f"WS-COUNT = WS-COUNT-SED -> Formazione Ruoli. Impattati: {righe_aggiornate}",
@@ -79,7 +79,7 @@ class GestioneRipartenzeStep:
                 )
             else:
                 # CONTA-LAVORI con CDAS = FI
-                res_lavori_fi = self._db_count_lavori_t17("FI", depth=1)
+                res_lavori_fi = self._db_count_lavori_t17(ctx, "FI", depth=1)
                 ctx.count_lavori_fi = int(list(res_lavori_fi[0].values())[0]) if res_lavori_fi else 0
 
                 BatchLogger.info(
@@ -89,7 +89,7 @@ class GestioneRipartenzeStep:
                 )
 
                 if ctx.count_lavori_fi == ctx.count_sedi and ctx.count_sedi > 0:
-                    righe_aggiornate = self._db_update_reset_lavori_t17(depth=1)
+                    righe_aggiornate = self._db_update_reset_lavori_t17(ctx, depth=1)
                     BatchLogger.info(
                         "RESET-LAV-T17",
                         f"WS-COUNT = WS-COUNT-SED -> Formazione Ruoli. Impattati: {righe_aggiornate}",
@@ -98,7 +98,7 @@ class GestioneRipartenzeStep:
                     )
                 else:
                     # CONTA-LAVORI con CDAS = IF
-                    res_lavori_if = self._db_count_lavori_t17("IF", depth=1)
+                    res_lavori_if = self._db_count_lavori_t17(ctx, "IF", depth=1)
                     ctx.count_lavori_if = int(list(res_lavori_if[0].values())[0]) if res_lavori_if else 0
 
                     BatchLogger.info(
@@ -108,7 +108,7 @@ class GestioneRipartenzeStep:
                     )
 
                     if ctx.count_lavori_if == ctx.count_sedi and ctx.count_sedi > 0:
-                        righe_aggiornate = self._db_update_reset_lavori_t17(depth=1)
+                        righe_aggiornate = self._db_update_reset_lavori_t17(ctx, depth=1)
                         BatchLogger.info(
                             "RESET-LAV-T17",
                             f"WS-COUNT = WS-COUNT-SED -> Formazione Ruoli. Impattati: {righe_aggiornate}",
@@ -138,21 +138,21 @@ class GestioneRipartenzeStep:
                     BatchLogger.error("CHK-RIPARTENZE", f"Fallito il rollback: {rollback_err}", depth=0)
 
             ctx.indic_errore = "X"
-            return -1
+            return None
 
 
     # =========================================================================
     # ACCESSI AL DATABASE (ISOLATI CON TRY-EXCEPT PUNTUALI)
     # =========================================================================
-    def _db_fetch_pilota_v11(self, current_date: date, fixed_date: date, depth: int) -> List[Any]:
+    def _db_fetch_pilota_v11(self, ctx: Any, current_date: date, fixed_date: date, depth: int) -> List[Any]:
         """Accesso atomico DB: recupero record pilota da ADCAVV11."""
         try:
             query = (
                 self.engine.dataset("ADCAVV11")
-                .select("cstacom", "dcon", "dinifor")
-                .filter_by("dinifor", "<=", current_date)
-                .filter_by("dfinfor", ">=", fixed_date)
-                .filter_by("cstacom", "=", "2")
+                .select("codStatoElab", "dataConsegna", "dataIniForm")
+                .filter_by("dataIniForm", "<=", current_date)
+                .filter_by("dataFinForm", ">=", fixed_date)
+                .filter_by("codStatoElab", "=", "2")
                 .with_uncommitted_read()
                 .limit(1)
                 .compile_select()
@@ -166,7 +166,7 @@ class GestioneRipartenzeStep:
             )
 
             ctx.indic_errore = "X"
-            return -1
+            return []
 
 
     def _db_update_pilota_v11(self, ctx: FormazioneRuoliContext, depth: int) -> int:
@@ -174,12 +174,12 @@ class GestioneRipartenzeStep:
         try:
             upd_av11 = (
                 self.engine.dataset("ADCAVV11")
-                .filter_by("dcon", "=", ctx.dcon_vv11)
-                .filter_by("dinifor", "=", ctx.dinifor_vv11)
+                .filter_by("dataConsegna", "=", ctx.dcon_vv11)
+                .filter_by("dataIniForm", "=", ctx.dinifor_vv11)
                 .compile_update({
-                    "cstacom": "0",
-                    "cstaavv": "3",
-                    "tms_inveq": datetime.now()
+                    "codStatoElab": "0",
+                    "codStatoAvviso": "3",
+                    "timestampInvioEQ": datetime.now()
                 })
             )
             return self.engine.execute_mutation(upd_av11, depth=depth)
@@ -204,7 +204,7 @@ class GestioneRipartenzeStep:
             raise
 
 
-    def _db_count_sedi_t17(self, depth: int) -> List[Any]:
+    def _db_count_sedi_t17(self, ctx: Any, depth: int) -> List[Any]:
         """Accesso atomico DB: conteggio totale sedi censite su ADCTET17."""
         try:
             q_sedi = (
@@ -218,10 +218,10 @@ class GestioneRipartenzeStep:
             BatchLogger.error("DB-COUNT-SEDI-T17-ERR", f"Errore DB durante il conteggio sedi su ADCTET17: {err}", depth=depth)
 
             ctx.indic_errore = "X"
-            return -1
+            return []
 
 
-    def _db_count_lavori_t17(self, cod_servizio: str, depth: int) -> List[Any]:
+    def _db_count_lavori_t17(self, ctx: Any, cod_servizio: str, depth: int) -> List[Any]:
         """Accesso atomico DB: conteggio sedi qualificate per codice servizio su ADCTET17."""
         try:
             q_lavori = (
@@ -240,10 +240,10 @@ class GestioneRipartenzeStep:
             )
 
             ctx.indic_errore = "X"
-            return -1
+            return []
 
 
-    def _db_update_reset_lavori_t17(self, depth: int) -> int:
+    def _db_update_reset_lavori_t17(self, ctx: Any, depth: int) -> int:
         """Accesso atomico DB: aggiornamento massivo sedi su ADCTET17 a codServizio='FO'."""
         try:
             upd_reset = (

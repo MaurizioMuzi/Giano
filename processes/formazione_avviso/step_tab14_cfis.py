@@ -70,6 +70,7 @@ class CicloDettaglioTab14Step:
 
                     # AGGIORNA-T14 THRU AGGIORNA-T14-EX
                     self._db_update_t14(
+                        ctx=ctx,
                         cges=row_t01.get("gestione"),
                         catt=row_t01.get("codiceAtto"),
                         scog=ws_cognome,
@@ -99,7 +100,7 @@ class CicloDettaglioTab14Step:
                     BatchLogger.error("CICLO-DETTAGLIO-T14", f"Fallito il rollback: {rollback_err}", depth=depth)
 
             ctx.indic_errore = "X"
-            return -1
+            return None
 
 
     # =========================================================================
@@ -136,10 +137,10 @@ class CicloDettaglioTab14Step:
             )
 
             ctx.indic_errore = "X"
-            return -1
+            return iter([])
 
 
-    def _db_update_t14(self, cges: str, catt: str, scog: str, snom: str, sindatr: str,
+    def _db_update_t14(self, ctx: Any, cges: str, catt: str, scog: str, snom: str, sindatr: str,
                        cproatr: str, ccomatr: str, ccapatr: str, slocatr: str, depth: int) -> int:
         """Accesso atomico DB: aggiornamento anagrafica recapito su ADCFRT14."""
         try:
@@ -223,7 +224,7 @@ class AllineamentoAnagrafeStep:
                     BatchLogger.error("ALLINEA-INDIRIZZO", f"Fallito il rollback: {rollback_err}", depth=depth)
 
             ctx.indic_errore = "X"
-            return -1
+            return None
 
 
     # =========================================================================
@@ -260,4 +261,4 @@ class AllineamentoAnagrafeStep:
             )
 
             ctx.indic_errore = "X"
-            return -1
+            return []

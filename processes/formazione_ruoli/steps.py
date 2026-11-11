@@ -48,7 +48,7 @@ class ElaborazioneCurjoi2Step:
 
             # Estrazione del numero massimo del ruolo registrato su ADCFRT02
             ws_annoruo_dec = str(ctx.dcon.year) if hasattr(ctx.dcon, "year") else str(ctx.dcon or "")[:4]
-            rows_max = self._db_fetch_max_ruolo_t02(ctx.current_sede, ws_annoruo_dec, depth=1)
+            rows_max = self._db_fetch_max_ruolo_t02(ctx, ctx.current_sede, ws_annoruo_dec, depth=1)
             max_nruo = None
             if rows_max:
                 row_val = rows_max[0] if isinstance(rows_max, list) else rows_max
@@ -122,7 +122,7 @@ class ElaborazioneCurjoi2Step:
                     BatchLogger.error("CURJOI2-RUOLI-ERR", f"Fallito il rollback: {rollback_err}", depth=depth)
 
             ctx.indic_errore = "X"
-            return -1
+            return None
 
 
     # =========================================================================
@@ -152,10 +152,10 @@ class ElaborazioneCurjoi2Step:
             BatchLogger.error("DB-FETCH-PRECHECK-CURJOI2-ERR", f"Errore DB durante pre-check su ADCFRT01: {err}", depth=depth)
 
             ctx.indic_errore = "X"
-            return -1
+            return []
 
 
-    def _db_fetch_max_ruolo_t02(self, cod_esattoria: Any, anno_rif: str, depth: int) -> List[Any]:
+    def _db_fetch_max_ruolo_t02(self, ctx: Any, cod_esattoria: Any, anno_rif: str, depth: int) -> List[Any]:
         """Accesso atomico DB: recupera il valore MAX(numRuolo) da ADCFRT02."""
         try:
             query = (
@@ -176,7 +176,7 @@ class ElaborazioneCurjoi2Step:
             )
 
             ctx.indic_errore = "X"
-            return -1
+            return []
 
 
     def _db_stream_curjoi2(self, ctx: FormazioneRuoliContext, t10_map: Any, depth: int) -> Iterator[List[Any]]:
@@ -218,7 +218,7 @@ class ElaborazioneCurjoi2Step:
             BatchLogger.error("DB-STREAM-CURJOI2-RUOLI-ERR", f"Errore DB durante l'apertura cursore CURJOI2 ruoli: {err}", depth=depth)
 
             ctx.indic_errore = "X"
-            return -1
+            return iter([])
 
 
     def _parse_decimal(self, value) -> Decimal:
@@ -361,7 +361,7 @@ class ElaborazioneCurjoi1Step:
                     BatchLogger.error("CURJOI1-RUOLI-ERR", f"Fallito il rollback: {rollback_err}", depth=0)
 
             ctx.indic_errore = "X"
-            return -1
+            return None
 
 
     # =========================================================================
@@ -422,11 +422,11 @@ class ElaborazioneCurjoi1Step:
     def _aggiorna_tet17(self, ctx: FormazioneRuoliContext, is_last: bool = False, depth: int = 1) -> None:
         """Aggiorna massivamente lo stato del record su ADCTET17 impostando il servizio a 'FI' a fine elaborazione."""
 
-        righe_impattate_if = self._db_update_tet17_fi(depth=depth + 1)
+        righe_impattate_fi = self._db_update_tet17_fi(ctx, depth=depth + 1)
         BatchLogger.info("UPD-STATO-T17", f"UPDATE ADCTET17 -> CDAS='FI' (Righe impattate: {righe_impattate_fi})", depth=depth, is_last=is_last)
 
 
-    def _db_update_tet17_fi(self, depth: int) -> int:
+    def _db_update_tet17_fi(self, ctx: Any, depth: int) -> int:
         """Accesso atomico DB: aggiornamento massivo di fine ciclo a CDAS='FI'."""
 
         try:
