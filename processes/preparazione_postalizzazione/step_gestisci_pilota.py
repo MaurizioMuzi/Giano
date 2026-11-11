@@ -1,11 +1,9 @@
 # processes/preparazione_postalizzazione/step_gestisci_pilota.py
 from core.batch_logger import BatchLogger
+from typing import List, Any, Optional
 from .context import PreparazionePostalizzazioneContext
 
-# # Timestamp convenzionale = "non ancora valorizzato", non una data di business reale
-# WS_TMS_DEFAULT = "0001-01-01-00.00.00.000000"
-
-#progressivi di censimento (es. per la gestione 1 - aziende, per la gestione 2 - artigiani, ...)
+# Progressivi di censimento (es. per la gestione 1 - aziende, per la gestione 2 - artigiani, ...)
 CATEGORIE_GESTIONE = {
     1:  "Gestione Aziende con lavoratori dipendenti",
     2:  "Gestione Artigiani",
@@ -41,70 +39,96 @@ class GestiscePilota:
     def __init__(self, engine):
         self.engine = engine
 
-    def execute(self, ctx: PreparazionePostalizzazioneContext) -> None:
-        BatchLogger.info("ACCEDI-PILOTA", "Verifica ultima elaborazione (ADCAVV11)", depth=1)
+    def execute(self, ctx: PreparazionePostalizzazioneContext, depth:int=1) -> None:
+        BatchLogger.info("ACCEDI-PILOTA", "Verifica ultima elaborazione (ADCAVV11)", depth=depth)
         tavv11_map = self.engine.get_table_map("ADCAVV11")
 
-        # Equivalente di OPEN-CURT11 + FETCH-CURT11:
-        # estrae il record con NUMELAB più alto (ultima elaborazione)
+        try:
+            # CURSORE 11: estrazione del record con NUMELAB più alto (ultima elaborazione)
+            rows = self._db_fetch_t11(depth = depth + 1)
+            if not rows:
+            # Rif. COBOL: IF PILOTA-KO -> TABELLA PILOTA VUOTA
+                BatchLogger.error(
+                    "PILOTA-KO",
+                    "SEGNALAZIONE: POSTALIZZAZIONE NON CONSENTITA - TABELLA PILOTA VUOTA",
+                    depth=depth+1, is_last=True
+                )
+                raise RuntimeError("[COBOL_EXCEPTION] POSTALIZZAZIONE NON CONSENTITA: TABELLA PILOTA VUOTA")
+
+            row = tavv11_map.normalize(rows[0])
+            ctx.ws_num_elab = row.get["numelab"]
+
+            if ctx.fstfor == "3":
+                '''
+                NUMELAB si incrementa solo se FSTFOR (pre-update) era '3' -> nuovo giro di elaborazione
+                Se non è un nuovo giro ('3'), NUMELAB resta quello estratto
+                '''
+                ctx.ws_num_elab += 1
+
+                BatchLogger.debug(
+                    "NUMELAB-CALCOLATO",
+                    f"NUMELAB ={ctx.ws_num_elab} | FSTFOR ={ctx.fstfor} ",
+                    depth=1
+                )
+                # Inserimento di un record in ADCAVV11 per ognuno dei progressivi censimento
+                BatchLogger.info(
+                    "INSERT-PILOTA",
+                    f"Avvio inserimento per {len(CATEGORIE_GESTIONE)} categorie | NUMELAB={ctx.ws_num_elab}",
+                    depth=1
+                )
+                for prgcens in CATEGORIE_GESTIONE:
+                    self._db_insert_t11(ctx, prgcens, depth=depth+1)
+
+                BatchLogger.info(
+                    "INSERT-PILOTA-COMPLETATO",
+                    f"Inserite {len(CATEGORIE_GESTIONE)} righe in ADCAVV11 (NUMELAB={ctx.ws_num_elab})",
+                    depth=depth+1
+                )
+                BatchLogger.separator(depth=0)
+        except Exception as err:
+            BatchLogger.error(
+                "ACCEDI-PILOTA",
+                f"Errore critico durante la gestione su ADCAVV11: {err}",
+                depth=0
+            )
+            ctx.indic_errore = "X"
+            try:
+                self.engine.rollback()
+                BatchLogger.warn("ACCEDI-PILOTAI", "Rollback transazionale eseguito a fronte del fallimento", depth=0)
+            except Exception as rollback_err:
+                BatchLogger.error("ACCEDI-PILOTA", f"Fallito il rollback: {rollback_err}", depth=0)
+            raise
+
+    # =========================================================================
+    # ACCESSI AL DATABASE (ISOLATI CON TRY-EXCEPT PUNTUALI)
+    # =========================================================================
+    def _db_fetch_t11(self, depth: int) -> Optional[List[Any]]:
+        """Accesso atomico DB: recupera il record da elaborare da ADCAVV11."""
         query = (
             self.engine.dataset("ADCAVV11")
-            .select("prgcens", "numelab", "dcon", "dinifor", "dfinfor", "cstacom", "cstaavv","tms_finform", "tms_finlot","tms_inveq")
+            .select("prgcens", "numelab", "dcon", "dinifor", "dfinfor", "cstacom", "cstaavv", "tms_finform",
+                    "tms_finlot", "tms_inveq")
             .order_by_desc("numelab")
             .limit(1)
+            .with_uncommitted_read()
             .compile_select()
         )
-        rows = self.engine.fetch(query, depth=1)
-
-        if not rows:
-            # Rif. COBOL: IF PILOTA-KO -> TABELLA PILOTA VUOTA
+        try:
+            return self.engine.fetch(query, depth=depth)
+        except Exception as err:
             BatchLogger.error(
-                "PILOTA-KO",
-                "SEGNALAZIONE: POSTALIZZAZIONE NON CONSENTITA - TABELLA PILOTA VUOTA",
-                depth=1, is_last=True
+                "DB-FETCH-T11-ERR",
+                f"Errore DB durante la SELECT su ADCAVV11: {err}",
+                depth=depth
             )
-            raise RuntimeError("[COBOL_EXCEPTION] POSTALIZZAZIONE NON CONSENTITA: TABELLA PILOTA VUOTA")
+            return []
 
-        row = tavv11_map.normalize(rows[0])
-        ctx.ws_num_elab = row.get["numelab"]
 
-        #numelab_nuovo = ctx.ws_num_elab
-
-        if ctx.fstfor == "3":
-        # NUMELAB si incrementa solo se FSTFOR (pre-update) era '3' -> nuovo giro di elaborazione
-        # se non è un nuovo giro ('3'), NUMELAB resta quello estratto
-            #numelab_nuovo += 1
-            ctx.ws_num_elab = ctx.ws_num_elab + 1
-
-            BatchLogger.info(
-                "NUMELAB-CALCOLATO",
-                f"NUMELAB estratto={ctx.ws_num_elab} | FSTFOR-precedente={ctx.fstfor} | NUMELAB-nuovo={ctx.ws_num_elab}",
-                depth=1
-            )
-            # inserimento di un record in ADCAVV11 per ognuno dei progressivi censimento
-            BatchLogger.info(
-                "INSERT-PILOTA",
-                f"Avvio inserimento per {len(CATEGORIE_GESTIONE)} categorie | NUMELAB={numelab_nuovo}",
-                depth=1
-            )
-            for prgcens in CATEGORIE_GESTIONE:
-                self._insert_pilota(ctx, prgcens)
-
-            BatchLogger.info(
-                "INSERT-PILOTA-COMPLETATO",
-                f"Inserite {len(CATEGORIE_GESTIONE)} righe in ADCAVV11 (NUMELAB={numelab_nuovo})",
-                depth=1
-            )
-
-    def _insert_pilota(self, ctx, #numelab_nuovo: int,
-                       prgcens: int) -> None:
-        """Rif. COBOL: INSERT-PILOTA-1 .. INSERT-PILOTA-30 (PRGCENS diverso).
-        DCON/DINIFOR/DFINFOR provengono da CNTR-STATO-FORMAZIONE (già in ctx).
-        CSTACOM/CSTAAVV = '0' e i tre timestamp = WS-TMS-DEFAULT sono valori fissi
-        in tutti i paragrafi originali, non calcolati."""
-        record_avv11 = {
+    def _db_insert_t11(self, ctx,prgcens: int, depth: int) -> int:
+        """Rif. COBOL: INSERT-PILOTA-1 .. INSERT-PILOTA-30 (PRGCENS diverso)"""
+        ins_avv11 = self.engine.dataset("ADCAVV11").compile_insert({
             "prgcens": prgcens,
-            "numelab": ctx.ws_num_elab, #numelab_nuovo
+            "numelab": ctx.ws_num_elab, #NUMELAB incrementato
             "dcon": ctx.dcon,
             "dinifor": ctx.dinifor,
             "dfinfor": ctx.dfinfor,
@@ -113,22 +137,20 @@ class GestiscePilota:
             "tms_finform": "0001-01-01-00.00.00.000000",
             "tms_finlot": "0001-01-01-00.00.00.000000",
             "tms_inveq": "0001-01-01-00.00.00.000000"
-        }
-        query = self.engine.dataset("ADCAVV11").compile_insert(record_avv11)
-
+        })
 
         try:
-            self.engine.execute_mutation(query, depth=2)
+            righe = self.engine.execute_mutation(ins_avv11, depth=depth)
 
             BatchLogger.debug(  # <-- log di dettaglio, uno per ogni chiamata
-                "INSERT-PILOTA-RIGA",
-                f"Inserita riga PRGCENS={prgcens} ({CATEGORIE_GESTIONE[prgcens]}) NUMELAB={ctx.ws_num_elab}",
-                depth=2
+                "INSERT-ADCAVV11",
+                f"Inserita riga PRGCENS={prgcens} ({CATEGORIE_GESTIONE[prgcens]}) NUMELAB={ctx.ws_num_elab}. Righe: {righe}",
+                depth=depth
             )
-        except Exception as e:
+            return righe
+        except Exception as err:
             BatchLogger.error(
-                "INSERT-PILOTA-ERRORE",
-                f"Fallito inserimento PRGCENS={prgcens} ({CATEGORIE_GESTIONE[prgcens]}) NUMELAB={ctx.ws_num_elab}: {e}",
-                depth=2, is_last=True
-            )
+                "INSERT-ADCAVV11",
+                f"Fallito inserimento PRGCENS={prgcens} ({CATEGORIE_GESTIONE[prgcens]}) NUMELAB={ctx.ws_num_elab}: {err}",
+                depth=depth)
             raise

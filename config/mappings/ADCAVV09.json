@@ -1,0 +1,26 @@
+{
+  "table": {
+    "db2": "DTPT03.ADCAVV09",
+    "sqlserver": "ADCAVV09"
+  },
+  "columns": {
+    "codiceTributo": {
+      "db2": "CTRIB",
+      "sqlserver": "CodiceTributo",
+      "logical_type": "string",
+      "padding": true
+    },
+    "descrizioneTributo": {
+      "db2": "STRIB",
+      "sqlserver": "DescrizioneTributo",
+      "logical_type": "string",
+      "padding": true
+    },
+    "descrizioneTributoTedesco": {
+      "db2": "STRIB_TDS",
+      "sqlserver": "DescrizioneTributoTedesco",
+      "logical_type": "string",
+      "padding": true
+    }
+  }
+}

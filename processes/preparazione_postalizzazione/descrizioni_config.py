@@ -1,110 +1,126 @@
 # processes/pdcpoavv_preparazione_postalizzazione/descrizioni_config.py
-from dataclasses import dataclass, field
-from typing import Optional
+def K(testo: str, pic: int) -> str:
+    """VALUE di un PIC X(pic): riempie di spazi a destra, errore se il testo non entra."""
+    if len(testo) > pic:
+        raise ValueError(f"{testo!r}: {len(testo)} caratteri, PIC X({pic})")
+    return testo.ljust(pic)
 
-K3_AP_IT = "PROT. "
-K3_AP_TD = "PROT. "
 
-@dataclass
-class DescrPartConfig:
-# Costanti utilizzate per le descrzioni degli avvisi omissione
-    k1_omg1: Optional[str]
-    k2_omg3: Optional[str]
-    kf_omg3: Optional[str]
-    k3_omg3: Optional[str]
-    k4_omg5: Optional[str]
-    k5_omg5: Optional[str]
-    k5_omg6: Optional[str]
-    ka_omg7: Optional[str]
-    k6_omg7: Optional[str]
-    k7_omg7: Optional[str]
-    k8_omg8: Optional[str]
-    k9_omgp: Optional[str]
-    ka_omgp: Optional[str]
-    kb_omge: Optional[str]
-#costanti per gestione domestici
-    k1_omdm: Optional[str]
-    k2_omdm: Optional[str]
-    k3_omdm: Optional[str]
-    k1_omredec: Optional[str]
+# ---------------------------------------------------------------- ITALIANO
+K1_OMG1IT = K('INADEMPIENZA ', 13)
+K2_OMG3IT = K('CONTRIBUTO PERCENTUALE OLTRE IL MINIMALE EMISSIONE ', 51)
+KF_OMG3IT = K('CONTRIBUTO FISSO EMISSIONE ', 27)
+K3_OMG3IT = K(' RATA N. ', 9)
+K4_OMG5IT = K('EMISSIONE ', 10)
+K5_OMG5IT = K(' TRIM. ', 7)
+K5_OMG6IT = K(' RATA ', 6)
+KA_OMG7IT = K('EMENS ', 6)
+K6_OMG7IT = K('COMPETENZA MESE/ANNO ', 21)
+K7_OMG7IT = K(' SEDE ', 6)
+K8_OMG8IT = K('COMPETENZA ANNO ', 16)
+K9_OMGPIT = K('MATRICOLA ', 10)
+KA_OMGPIT = K(' ANNO ', 6)
+KB_OMGEIT = K('DENUNCIA INSOLUTA', 17)
 
-# Costanti utilizzate per le descrzioni degli avvisi da verbale ispettivo
-    k1_ac: Optional[str]
-    k1_ac_vb: Optional[str]
-    k2_ac: Optional[str]
-    k3_ac: Optional[str]
-    k3_ac_vb: Optional[str]
-    k4_ac: Optional[str]
-    k5_ac: Optional[str]
-    k8_ac: Optional[str]
-    k6_ac: Optional[str]
-    k6_ac1: Optional[str]
+K1_ACIT = K('VERBALE ISPETTIVO', 17)
+K2_ACIT = K(' NOTIFICATO IL ', 15)
+K3_ACIT = K('VERBALE ISPETTIVO PROT. ', 24)
+K4_ACIT = K(' DEL ', 5)
+K5_ACIT = K('NOTIFICATO IL ', 14)
+K8_ACIT = K('NOTIFICATA IL ', 14)
+K6_ACIT = K(' NIU ', 5)
+K6_ACIT_1 = K('DEL ', 4)
+P1_ACIT = K('VERIFICA REDDITO', 16)
 
-    k3_ap: Optional[str]
+K1_AUIT = K('AGENZIA DELLE ENTRATE ACCERTAMENTO UNIFICATO ', 45)
+K2_AUIT = K('ANNO ', 5)
+K3_AUIT = K(' - N. ', 6)
+K3_AUIT_1 = K('N. ', 3)
+K1_ASIT = K('AGENZIA DELLE ENTRATE ACCERTAMENTO STUDI DI SETTORE', 51)
+K1_AFIT = K('ACCERTAMENTO D', 14)
+K2_AFIT = K('"', 1)                      # VALUE QUOTE
+K3_AFIT = K('UFFICIO', 7)
 
-# AVVISI OMISSIONE
-TDS_OM = DescrPartConfig(
-    k1_omg1="BEITRAGSUNTERLASSUNG ",
-    k2_omg3="PROZENTBEITRAG ÜBER DEM MINDESTBEITRAG AUSGESTELLT ",
-    kf_omg3="AUSGABE FIXBEITRÄGE ",
-    k3_omg3=" RATE NR. ",
-    k4_omg5="AUSGABE ",
-    k5_omg5=" TRIMESTER ",
-    k5_omg6=" RATE ",
-    ka_omg7="EMENS ",
-    k6_omg7="BEZUGSZEIT MONAT/JAHR ",
-    k7_omg7=" AMTSSTELLE ",
-    k8_omg8="BEZUGSJAHR JAHR ",
-    k9_omgp="MATRIKEL ",
-    ka_omgp=" JAHR ",
-    kb_omge="AUSSTEHENDE MELDUNG",
-    k1_omdm="BEITRAGSREGELUNG NR. ",
-    k2_omdm=" BEZUGS-TRIMESTER/JAHR ",
-    k3_omdm="/",
-    k1_omredec="40%-VORAUSZAHLUNG LOHNAUSGLEICH (CIGO, CIGD, ASO)",
-    k3_ap=K3_AP_TD
-)
+K1_ATTIIT = K('AGENZIA DELLE ENTRATE ATTI DI DEFINIZIONE ', 42)
+K2_ATTIIT = K('- ANNO ', 7)
+K3_ATTIIT = K(' - N. ', 6)
+K4_ATTIIT = K(' RIF.COLLABORATORE', 18)
+K4_ATTIIT_1 = K('RIF.COLLABORATORE ', 18)
 
-IT_OM = DescrPartConfig(
-    k1_omg1="INADEMPIENZA ",
-    k2_omg3="CONTRIBUTO PERCENTUALE OLTRE IL MINIMALE EMISSIONE ",
-    kf_omg3="CONTRIBUTO FISSO EMISSIONE ",
-    k3_omg3=" RATA N. ",
-    k4_omg5="EMISSIONE ",
-    k5_omg5=" TRIM. ",
-    k5_omg6=" RATA ",
-    ka_omg7="EMENS ",
-    k6_omg7="COMPETENZA MESE/ANNO ",
-    k7_omg7=" SEDE ",
-    k8_omg8="COMPETENZA ANNO ",
-    k9_omgp="MATRICOLA ",
-    ka_omgp=" ANNO ",
-    kb_omge="DENUNCIA INSOLUTA",
-    k1_omdm="REGOLARIZZAZIONE N. ",
-    k2_omdm=" COMPETENZA TRIMESTRE/ANNO ",
-    k3_omdm="/",
-    k3_ap=K3_AP_IT
-)
+K1_IRREIT = K('COMUNICAZIONE DI DEBITO ', 24)
+K2_IRREIT = K(' DEL ', 5)
 
-# AVVISI VERBALE ISPETTIVO
-TDS_AC = DescrPartConfig(
-    k1_ac="ERHEBUNGSPROTOKOLL",
-    k1_ac_vb= "INSPEKTIONSPROTOKOLL",
-    k2_ac="ZUGESTELLT AM ",
-    k3_ac=" PROT. ",
-    k3_ac_vb="INSPEKTIONSPROTOKOLL PROT.NR. ",
-    k4_ac=" VOM "
-)
+KM_DISC_IT = K(' - A SEGUITO DEL PROVVEDIMENTO DI DISCONOSCIMENTO ', 50)
 
-IT_AC = DescrPartConfig(
-    k1_ac="VERBALE ISPETTIVO",
-    k2_ac=" NOTIFICATO IL ",
-    k3_ac="VERBALE ISPETTIVO PROT. ",
-    k4_ac=" DEL ",
-    k5_ac="NOTIFICATO IL ",
-    k8_ac="'NOTIFICATA IL ",
-    k6_ac=" NIU ",
-    k6_ac1="DEL "
-)
+K1_APIT = K('INDEBITO N. ', 12)
+K2_APIT = K('PROVVEDIMENTO DI RIPETIZIONE DI INDEBITO', 40)
+K3_APIT = K('PROT. ', 6)
 
+K1_36IT = K('LIQUIDAZIONE AUTOMATICA ART. 36 BIS DEL DPR 600/73 ', 51)
+K2_36IT = K(' ID - TELEMATICO: ', 18)
+K2_36IT_1 = K('C.A.', 4)
+
+K1_OMDMIT = K('REGOLARIZZAZIONE N. ', 20)
+K2_OMDMIT = K(' COMPETENZA TRIMESTRE/ANNO ', 27)
+K3_OMDMIT = K('/', 1)
+
+K1_SPSIT = K('SPESE DI NOTIFICA DEL PRESENTE AVVISO DI ADDEBITO ', 51)  # PIC da verificare
+K1_SPSTD = K('ZUSTELLUNGSGEBÜHREN FÜR DEN VORLIEGENDEN SCHULDBESCHEID ', 57)
+
+# ---------------------------------------------------------------- TEDESCO
+K1_OMG1TD = K('BEITRAGSUNTERLASSUNG ', 21)
+K2_OMG3TD = K('PROZENTBEITRAG ÜBER DEM MINDESTBEITRAG AUSGESTELLT ', 51)
+KF_OMG3TD = K('AUSGABE FIXBEITRÄGE ', 20)
+K3_OMG3TD = K(' RATE NR. ', 10)
+K4_OMG5TD = K('AUSGABE ', 8)
+K5_OMG5TD = K(' TRIMESTER ', 11)
+K5_OMG6TD = K(' RATE ', 6)
+KA_OMG7TD = K('EMENS ', 6)
+K6_OMG7TD = K('BEZUGSZEIT MONAT/JAHR ', 22)
+K7_OMG7TD = K(' AMTSSTELLE ', 12)
+K8_OMG8TD = K('BEZUGSJAHR JAHR ', 16)
+K9_OMGPTD = K('MATRIKEL ', 9)
+KA_OMGPTD = K(' JAHR ', 6)
+KB_OMGETD = K('AUSSTEHENDE MELDUNG', 19)
+
+K1_ACTD = K('ERHEBUNGSPROTOKOLL', 18)
+K1_ACTD_VB = K('INSPEKTIONSPROTOKOLL', 20)
+K2_ACTD = K('ZUGESTELLT AM ', 14)
+K4_ACTD = K(' VOM ', 5)
+K3_ACTD = K(' PROT. ', 7)
+K3_ACTD_VB = K('INSPEKTIONSPROTOKOLL PROT.NR. ', 30)
+P1_ACTD = K('EINKOMMENSPRÜFUNG', 17)
+
+K1_AUTD = K('AGENTUR DER EINNAHMEN', 47)
+K2_AUTD = K('JAHR ', 5)
+K3_AUTD = K(' - NR. ', 7)
+K3_AUTD_1 = K('NR. ', 4)
+K1_ASTD = K('AGENTUR DER EINNAHMEN SEKTORENÜBERPRÜFUNG', 41)
+K1_AFTD = K('ÜBERPRÜFUNG VON AMTS WEGEN', 26)
+
+K1_ATTITD = K('AGENTUR DER EINNAHMEN FESTSTELLUNGSBESCHEID ', 44)
+K2_ATTITD = K('- JAHR ', 7)
+K3_ATTITD = K(' - NR. ', 7)
+K4_ATTITD = K('MITARBEITER ', 12)
+
+K1_IRRETD = K('SCHULDBESCHEID ', 15)
+K2_IRRETD = K(' VOM ', 5)
+
+KM_DISC_TDS = K(' - INFOLGE DER ABERKENNUNGSMASSNAHME ', 37)
+
+K1_APTD = K('SCHULDBETRAG NR. ', 17)
+K2_APTD = K('VERFÜGUNG ZUR ERSTATTUNG RECHTSGRUNDLOS GEZAHLT', 47)
+K3_APTD = K('PROT. ', 6)
+
+K1_36TD = K('AUTOMAT. AUSZAHLUNG LT. ART. 36-BIS, DPR NR. 600/1973', 53)
+K2_36TD = K(' ID - TELEMATICO: ', 18)
+K2_36TD_1 = K('AKT NR. ', 8)
+
+K1_OMDMTD = K('BEITRAGSREGELUNG NR. ', 21)
+K2_OMDMTD = K(' BEZUGS-TRIMESTER/JAHR ', 23)
+K1_RVMCTD = K('RECHNUNG VMC NR. ', 17)
+K1_OMREDECTD = K('40%-VORAUSZAHLUNG LOHNAUSGLEICH (CIGO, CIGD, ASO)', 49)
+
+# Nel sorgente COBOL il paragrafo TDS ('C') usa K3-OMDMIT: alias per poter usare L.k("K3_OMDM")
+K3_OMDMTD = K3_OMDMIT
 

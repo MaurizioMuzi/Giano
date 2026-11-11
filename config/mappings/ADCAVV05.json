@@ -1,0 +1,26 @@
+{
+  "table": {
+    "db2": "DTPT03.ADCAVV05",
+    "sqlserver": "ADCAVV05"
+  },
+  "columns": {
+    "flgSanzioni": {
+      "db2": "FSANZ",
+      "sqlserver": "FlgSanzioni",
+      "logical_type": "string",
+      "padding": true
+    },
+    "regimeSanz": {
+      "db2": "SREGSANZ",
+      "sqlserver": "RegimeSanz",
+      "logical_type": "string",
+      "padding": true
+    },
+    "regimeSanz_Tds": {
+      "db2": "SREGSANZ_TDS",
+      "sqlserver": "RegimeSanzTedesco",
+      "logical_type": "string",
+      "padding": true
+    }
+  }
+}
