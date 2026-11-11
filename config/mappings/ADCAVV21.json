@@ -1,0 +1,60 @@
+{
+  "table": {
+    "db2": "DTPT03.ADCAVV21",
+    "sqlserver": "ADCAVV21"
+  },
+  "columns": {
+    "gestione": {
+      "db2": "CGES",
+      "sqlserver": "Gestione",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codiceAtto": {
+      "db2": "CATT",
+      "sqlserver": "CodiceAtto",
+      "logical_type": "string",
+      "padding": true
+    },
+    "progCertificato": {
+      "db2": "NESPCER",
+      "sqlserver": "ProgressivoCertificato",
+      "logical_type": "int"
+    },
+    "codiceSede": {
+      "db2": "CODSED",
+      "sqlserver": "CodiceSede",
+      "logical_type": "string",
+      "padding": true
+    },
+    "descrCatCertificato": {
+      "db2": "SCAT",
+      "sqlserver": "DescrCatCertificato",
+      "logical_type": "string",
+      "padding": true
+    },
+    "numeroCertificato": {
+      "db2": "NCER",
+      "sqlserver": "NumeroCertificato",
+      "logical_type": "string",
+      "padding": true
+    },
+    "identificativoAvviso": {
+      "db2": "IDAVV",
+      "sqlserver": "IdentificativoAvviso",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codiceAvviso": {
+      "db2": "CODAVV",
+      "sqlserver": "CodiceAvviso",
+      "logical_type": "string",
+      "padding": true
+    },
+    "timestampInserimento": {
+      "db2": "TMSINS",
+      "sqlserver": "TmpInserimento",
+      "logical_type": "datetime"
+    }
+  }
+}

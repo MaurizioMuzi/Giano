@@ -4,6 +4,8 @@ from datetime import date, datetime
 from typing import Optional, Dict, Any
 from decimal import Decimal
 
+from processes.preparazione_postalizzazione.step_descrizioni_partite import Lingua
+
 
 @dataclass
 class PreparazionePostalizzazioneContext:
@@ -18,7 +20,7 @@ class PreparazionePostalizzazioneContext:
     sede_filter: Optional[str] = None
     size_commit = 1000
 
-    # Registri contabili da ADCFRT18
+    # Dati correnti ADCFRT18
     dcon: Optional[date] = None
     diniinf: Optional[date] = None
     dfininf: Optional[date] = None
@@ -56,9 +58,11 @@ class PreparazionePostalizzazioneContext:
     impAvvisoRav: int = 0
     impCaricoCartella: int = 0
     impAggio: int = 0
+    idAvvisoGest: Optional[str] = None
 
     # CONTATORI
     ws_ctr_t03 : int = 0
+    ws_ctr_t01: int = 0
     ws_nespcf: int = 0
 
     # Indicatori da VSEDI_ADDEBITI
@@ -109,6 +113,9 @@ class PreparazionePostalizzazioneContext:
     sattbi: Optional[str] = None
     satt: Optional[str] = None
     sedorig: Optional[str] = None
+    flagSanzioni: Optional[str] = None
+    cazi: Optional[str] = None
+    dfal: Optional[date] = None
 
     # =========================================================================
     # CAMPI DI LAVORO (WORKING-STORAGE: VALORIZZA-T12)
@@ -127,7 +134,6 @@ class PreparazionePostalizzazioneContext:
     totale_record_curt14: int = 0
 
     ws_sede: Optional[str] = None
-    ws_cazi: Optional[str] = None
     ws_periodo: Optional[int] = None
     ws_periobi: Optional[int] = None
 
@@ -155,15 +161,26 @@ class PreparazionePostalizzazioneContext:
     # sw_keyavv: int = 0
     # sw_errore: int = 0
 
+    # Dati correnti ADCAVV33
+    desc_partita_1: Optional[str] = None
+    desc_partita_2: Optional[str] = None
+    desc_partita_3: Optional[str] = None
+    desc_partita_4: Optional[str] = None
+
     # Dati correnti ADCAVV13
-    ws_spar1: Optional[str] = None
-    ws_spar2: Optional[str] = None
-    ws_spar1_tds: Optional[str] = None
-    ws_spar2_tds: Optional[str] = None
+    it: Optional[Lingua] = None          # WS-SPAR1/2 e SPAR1/2 (italiano)
+    tds: Optional[Lingua] = None         # WS-SPAR1/2-TDS e SPAR-TDS1/2 (tedesco)
+    sreg_sanz: Optional[str] = None
+    sreg_sanz_tds: Optional[str] = None
 
     ws_appo_inad: Optional[int] = 0
     ws_anno_catt: Optional[int] = 0
     ws_appo_catt: Optional[int] = 0
+
+    ws_count1: Optional[int] = 0
+
+    # Dati correnti ADCFRT10
+    codiceTributo: Optional[str] = None
 
     @property
     def dinf_cdcfrt01(self) -> date:
@@ -189,73 +206,3 @@ class PreparazionePostalizzazioneContext:
             f"{int(self.ws_cin1 or 0) % 10**1:01d}"
             f"{int(self.ws_cin2 or 0) % 10**2:02d}"
         )
-
-    # def imp_comodi_key(self, row_t01: dict, row_t10: dict) -> None:
-    #     """
-    #     Reingegnerizzazione fedele del paragrafo COBOL IMP-COMODI-KEY.
-    #     Inizializza registri di rottura, calcola le forzature fiscali e resetta i flag.
-    #     """
-    #     # CDCFRT01 -> Working Fields
-    #     cges_val = row_t01.get("gestione")
-    #     self.ws_cges = cges_val
-    #     self.ws_cgesavv = cges_val
-    #     self.n_cges = cges_val
-    #
-    #     self.ws_catt = ""
-    #     self.n_catt = ""
-    #     self.n_nprgart = row_t10.get("progArticolo")
-    #
-    #     self.ws_tipoavv = row_t01.get("tipoAvviso")
-    #     self.ws_annoavv = row_t01.get("annoAvviso")
-    #     self.ws_progavv = row_t01.get("progAvviso")
-    #     self.ws_nparavv = row_t01.get("numPartitaAvviso")
-    #     self.ws_sedeavv = row_t01.get("sedeOrigine")
-    #     self.ws_sede = row_t01.get("sede")
-    #     self.ws_zona = row_t01.get("zona")
-    #     self.ws_cfis = row_t01.get("codiceFiscale")
-    #     self.ws_cazi = row_t01.get("codAzienda")
-    #     self.ws_periodo = row_t01.get("periodo")
-    #     self.ws_periobi = row_t01.get("periodoBi")
-    #     self.ws_frateiz = row_t01.get("flgRateizzazione")
-    #
-    #     # Gestione Forzature Fiscali (FVALFIS)
-    #     fvalfis = str(row_t01.get("flgValFiscale") or "").strip()
-    #     self.ws_forzatura0 = fvalfis
-    #     if fvalfis == "0":
-    #         self.ws_forzatura1 = "1"
-    #     elif fvalfis == "1":
-    #         self.ws_forzatura1 = "0"
-    #     elif fvalfis == "2":
-    #         self.ws_forzatura1 = "3"
-    #     elif fvalfis == "3":
-    #         self.ws_forzatura1 = "2"
-    #     else:
-    #         self.ws_forzatura1 = None
-    #
-    #     self.ws_cesa = row_t01.get("codEsattoria")
-    #     self.ws_cesaavv = row_t01.get("codEsattoriaAvviso")
-    #     self.ws_feur = row_t01.get("flgEuro")
-    #
-    #     # CDCFRT10 -> Working Fields
-    #     self.ws_ctrbcnc = row_t10.get("codTributoCnc")
-    #     self.ws_crat = row_t10.get("codRata")
-    #     self.ws_ntotrat = row_t10.get("numTotRate")
-    #     self.ws_fres = row_t10.get("flgResiduo")
-    #     self.ws_cfasamm = row_t10.get("codFasAmm")
-    #
-    #     self.ws_key_catt = row_t10.get("codiceAtto")
-    #     self.ws_key_cges = row_t10.get("gestione")
-    #     self.ws_key_nprgart = row_t10.get("progArticolo")
-    #
-    #     # Reset accumulatori e indicatori per il nuovo avviso
-    #     self.ws_itrbavv = Decimal("0")
-    #     self.ws_iaggavv = Decimal("0")
-    #     self.ws_nespavv = 0
-    #     self.ws_nespart = 0
-    #     self.ws_ntotpar = 0
-    #     self.indic_scarto_t01 = " "
-    #     self.indic_scarto_t10 = " "
-    #     self.indic_scarto_t14 = " "
-    #     self.ws_erravv = " "
-    #     self.sw_keyavv = 0
-    #     self.sw_errore = 0

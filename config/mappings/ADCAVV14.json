@@ -1,0 +1,107 @@
+{
+  "table": {
+    "db2": "DTPT03.ADCAVV14",
+    "sqlserver": "ADCAVV14"
+  },
+  "columns": {
+    "codiceAvviso": {
+      "db2": "CODAVV",
+      "sqlserver": "CodiceAvviso",
+      "logical_type": "string",
+      "padding": true
+    },
+    "identificativoAvviso": {
+      "db2": "IDAVV",
+      "sqlserver": "IdentificativoAvviso",
+      "logical_type": "string",
+      "padding": true
+    },
+    "progPartita": {
+      "db2": "NPAR",
+      "sqlserver": "ProgressivoPartita",
+      "logical_type": "int"
+    },
+    "progArticolo": {
+      "db2": "NART",
+      "sqlserver": "ProgArticolo",
+      "logical_type": "int"
+    },
+    "codiceTributo": {
+      "db2": "CTRIB",
+      "sqlserver": "CodiceTributo",
+      "logical_type": "string",
+      "padding": true
+    },
+    "tipoCredito": {
+      "db2": "STIP_CRED",
+      "sqlserver": "TipoCredito",
+      "logical_type": "string",
+      "padding": true
+    },
+    "tipoCreditoTedesco": {
+      "db2": "STIP_CRED_TDS",
+      "sqlserver": "TipoCreditoTedesco",
+      "logical_type": "string",
+      "padding": true
+    },
+    "periodoRif": {
+      "db2": "PER_RIF",
+      "sqlserver": "PeriodoRiferimento",
+      "logical_type": "string",
+      "padding": true
+    },
+    "periodoRifTedesco": {
+      "db2": "PER_RIF_TDS",
+      "sqlserver": "PeriodoRiferimento",
+      "logical_type": "string",
+      "padding": true
+    },
+    "importoDovuto": {
+      "db2": "ICNTDOV",
+      "sqlserver": "ImportoDovuto",
+      "logical_type": "decimal"
+    },
+    "importoVersato": {
+      "db2": "ICNTVER",
+      "sqlserver": "ImportoVersato",
+      "logical_type": "decimal"
+    },
+    "importoRichiesto": {
+      "db2": "ITRB",
+      "sqlserver": "ImportoRichiesto",
+      "logical_type": "decimal"
+    },
+    "impAggio": {
+      "db2": "IAGGIO",
+      "sqlserver": "ImpAggio",
+      "logical_type": "decimal"
+    },
+    "sanatoria": {
+      "db2": "ITRBPAG",
+      "sqlserver": "Sanatoria",
+      "logical_type": "decimal"
+    },
+    "codiceConto": {
+      "db2": "CCONTO",
+      "sqlserver": "CodiceConto",
+      "logical_type": "int"
+    },
+    "codiceCausale": {
+      "db2": "CCAU",
+      "sqlserver": "CodiceCausale",
+      "logical_type": "int"
+    },
+    "descrizioneArt": {
+      "db2": "SART",
+      "sqlserver": "DescrizioneArt",
+      "logical_type": "string",
+      "padding": true
+    },
+    "descrizioneArtTedesco": {
+      "db2": "SARTBI",
+      "sqlserver": "descrizioneArtTedesco",
+      "logical_type": "string",
+      "padding": true
+    }
+  }
+}

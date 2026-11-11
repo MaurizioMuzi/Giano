@@ -1,5 +1,5 @@
 # processes/preparazione_postalizzazione/step_elabora_avviso.py
-from datetime import date
+from datetime import date, datetime
 
 from core.batch_logger import BatchLogger
 from .context import PreparazionePostalizzazioneContext
@@ -57,6 +57,9 @@ class DettaglioElaboraAvviso:
             ctx.sattbi = row_t01.get("descrizioneAttoBi")
             ctx.satt = row_t01.get("descrizioneAtto")
             ctx.sede = row_t01.get("sedeOrigine")
+            ctx.flagSanzioni = row_t01.get("flgSanzioni")
+            ctx.cazi = row_t01.get("codAzienda")
+            ctx.dfal = row_t01.get("dataFallimento")
 
         else:
             BatchLogger.error("SELECT-ADCFRT01", f"Nessun record attivo su ADCFRT01", depth=1, is_last=True)
@@ -113,10 +116,13 @@ class DettaglioElaboraAvviso:
 
             self.step_ciclo_curt_01.execute_dettaglio(
                 ctx=ctx,
-                row=row_t01,
-                depth=depth + 1,
-                is_last=is_last
+                #row=row_t01,
+                depth=depth + 1
+                #is_last=is_last
             )
+
+        # UPDATE-T01
+        self._aggiorna_t01(ctx, depth)
 
     def _valorizza_t12(self, ctx: PreparazionePostalizzazioneContext, rowt01, rowt14, is_last: bool = False,
                                  depth: int = 2) -> None:
@@ -157,12 +163,12 @@ class DettaglioElaboraAvviso:
                     ]
         ws_sede = "".join(val_sede)[:4]
 
-        ctx.ws_cazi = (rowt01.get("codAzienda") or "").ljust(10)
+        ctx.cazi = (rowt01.get("codAzienda") or "").ljust(10)
         if ctx.ws_cges == 'L':
             # CAZI(1:6) -> CODMAT(1:6), '/' -> CODMAT(7:1), CAZI(7:4) -> CODMAT(8:3)
-            codiceMatricola = ctx.ws_cazi[0:6] + "/" + ctx.ws_cazi[6:9]
+            codiceMatricola = ctx.cazi[0:6] + "/" + ctx.cazi[6:9]
         else:
-            codiceMatricola = ctx.ws_cazi
+            codiceMatricola = ctx.cazi
         # BatchLogger.info("CODICE-MATRICOLA-CDCAVV12",
         #                  f"CODMAT = {ctx.avv12['codMatricola']}",
         #                  depth=depth,
@@ -447,3 +453,22 @@ class DettaglioElaboraAvviso:
                 depth=2, is_last=True
             )
             raise
+
+    def _aggiorna_t01(self, ctx: PreparazionePostalizzazioneContext, depth: int = 2) -> None:
+        """Aggiorna stato della tabella ADCFRT01, CSTAATT = '0Q'"""
+
+        upd_t01 = (
+            self.engine.dataset("ADCFRT01")
+            .filter_by("codEsattoriaAvviso", "=", ctx.cesa)
+            .filter_by("annoCarico", "=", ctx.annoCartella)
+            .filter_by("numCarico", "=", ctx.numeroCartella)
+            .filter_by("numChkCarico", "=", ctx.chkCartella)
+            .compile_update({
+                "statoAttivita": "0Q",
+                "timestampInsStato": datetime.now(),
+                "dataTransizioneStato" : date.today()
+            })
+        )
+
+        righe_impattate = self.engine.execute_mutation(upd_t01, depth=depth + 1)
+        BatchLogger.info("UPD-T01", f"UPDATE ADCFRT01 -> CESA = {ctx.cesa}, ACAR = {ctx.annoCartella} e NCAR = {ctx.numeroCartella}(Righe impattate: {righe_impattate})", depth=depth)

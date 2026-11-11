@@ -5,6 +5,7 @@ from core.batch_logger import BatchLogger
 from .context import PreparazionePostalizzazioneContext
 from .step_operazioni_iniziali import StatoFormazioneStep
 from .steps import ElaborazioneCurt17Step
+from .step_operazioni_finali import OperazioniFinaliStep
 
 class PreparazionePostalizzazioneEngineProcessor(BaseProcessModel):
     """Orchestratore principale per il programma batch COBOL PDCPOAVV."""
@@ -21,6 +22,7 @@ class PreparazionePostalizzazioneEngineProcessor(BaseProcessModel):
 
         self.step_stato = StatoFormazioneStep(self)
         self.step_curt17 = ElaborazioneCurt17Step(self)
+        self.step_finali = OperazioniFinaliStep(self)
 
 
     def _execute_business_logic(self):
@@ -35,8 +37,8 @@ class PreparazionePostalizzazioneEngineProcessor(BaseProcessModel):
             self.step_curt17.execute(self.context)
 
             # 3. Operazioni conclusive di consolidamento finestra
-            #self.step_finali.execute(self.context, depth=1)
-            #self.commit()
+            self.step_finali.execute(self.context, depth=1)
+            self.commit()
 
         except Exception as err:
             BatchLogger.error("BATCH-ERROR",
