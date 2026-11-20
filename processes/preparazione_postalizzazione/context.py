@@ -122,7 +122,7 @@ class PreparazionePostalizzazioneContext:
     # =========================================================================
 
 
-    prgcens: Decimal = field(default_factory=lambda: Decimal("0"))
+    prgcens: Optional[int] = None
     ws_cesaavv: Optional[int] = None
     ws_annoavv: Optional[int] = None
     ws_numavv: Optional[int] = None

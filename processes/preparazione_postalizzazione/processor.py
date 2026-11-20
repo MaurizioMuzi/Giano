@@ -34,7 +34,7 @@ class PreparazionePostalizzazioneEngineProcessor(BaseProcessModel):
             #self.commit() nel COBOL non è presente la commit in questa sezione
 
             # 2. Scansione sedi operative + elaborazione di tutte le occorrenze formate (CSTACAR = 'Q' (avviso postalizzato), CIDERAV = RAV-17 calcolato)
-            self.step_curt17.execute(self.context)
+            self.step_curt17.execute(self.context, depth=1)
 
             # 3. Operazioni conclusive di consolidamento finestra
             self.step_finali.execute(self.context, depth=1)

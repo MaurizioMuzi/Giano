@@ -130,10 +130,10 @@ class ElaborazioneCicloCurt03Step:
 
                         cstacar = str(row.get("statoCartella") or "")
                         if cstacar == "G":
-                            self.step_imposta_errori.imp_errore_cesa(ctx, depth)
+                            self.step_imposta_errori.imp_errore_cesa(ctx, depth=depth+1)
 
                         # UPDATE-T03-RAV
-                        self._aggiorna_t03_rav(ctx, depth)
+                        self._aggiorna_t03_rav(ctx, depth=depth+1)
                 else:
                     '''SCARTO AVVISO:
                     Se importo tributo dell'avviso è minore di 50 euro
@@ -147,11 +147,21 @@ class ElaborazioneCicloCurt03Step:
                     ctx.ws_cstatt = "0X"
                     ctx.ws_cstaart = "0X"
                     ctx.indic_rav_presente = "X"
-                    self.step_imposta_errori.imp_errore_importo(ctx, depth)
-                    self._insert_adc03del(ctx, row, depth+1)
-                    self._delete_t03_key(ctx, depth+1)
+                    self.step_imposta_errori.imp_errore_importo(ctx, depth=depth+1)
+                    righe_inserite= self._insert_adc03del(ctx, row, depth=depth+1)
 
-                self.engine.commit(depth=depth)
+                    BatchLogger.info(
+                        "INSERT-KEY-T03-COMPLETATO",
+                        f"Inserite {righe_inserite} righe in ADC03DEL",
+                        depth=depth+1
+                    )
+                    righe_eliminate = self._delete_t03_key(ctx, depth=depth+1)
+
+                    BatchLogger.info("DELETE-T03",
+                                     f"DELETE ADCFRT03 -> CESA= {ctx.cesa}, ACAR = {ctx.annoCartella} e NCAR = {ctx.numeroCartella}(Righe impattate: {righe_eliminate})",
+                                     depth=depth+1)
+
+                self.engine.commit(depth=depth+1)
 
                 BatchLogger.info(
                     "COMMIT",
@@ -163,9 +173,9 @@ class ElaborazioneCicloCurt03Step:
             if (ctx.indic_sede_nonval!= "X" and
                 ctx.indic_rav_presente!="X" and ctx.indic_imp_avv != "X"):
 
-                self._aggiorna_t03(ctx, depth+1)
+                self._aggiorna_t03(ctx, depth=depth+1)
 
-            if ctx.ws_cstatt == 2000:
+            if ctx.ws_ctr_t03 == 2000:
                 self.engine.commit(depth=depth)
 
                 BatchLogger.info(
@@ -329,7 +339,7 @@ class ElaborazioneCicloCurt03Step:
             )
             raise
 
-    def _delete_t03(self, ctx, row, depth: int) -> int:
+    def _delete_t03(self, ctx, depth: int) -> int:
         """Rif. COBOL: DELETE-T03.
         Cancellazione fisica dalla tabella ADCFRT03 per sede e zona relativamente a sedi non attive su AGESEDI """
 
@@ -394,8 +404,14 @@ class ElaborazioneCicloCurt03Step:
             )
             raise
 
-    def _aggiorna_t03_rav(self, ctx: PreparazionePostalizzazioneContext, depth: int = 2) -> None:
+    def _aggiorna_t03_rav(self, ctx: PreparazionePostalizzazioneContext, is_last: bool = False, depth: int = 2) -> None:
         """Aggiorna lo stato del record su ADCFRT03 impostando lo stato dell'avviso a 'K' """
+        righe_impattate = self._db_update_t03_rav(ctx, depth=depth)
+        BatchLogger.info("UPD-STATO-T03", f"UPDATE ADCTET03 -> CSTACAR= {ctx.ws_cstacar} (Righe impattate: {righe_impattate})",
+                             depth=depth, is_last=is_last)
+
+    def _db_update_t03_rav(self, ctx: PreparazionePostalizzazioneContext, depth: int) -> int:
+        """Accesso atomico DB: aggiornamento massivo dell'avviso a 'K'."""
         upd_tab03_rav = (
             self.engine.dataset("ADCFRT03")
             .filter_by("codConcessione", "=", ctx.cesa)
@@ -406,14 +422,25 @@ class ElaborazioneCicloCurt03Step:
                     "timestampInsStato" : datetime.now()
                 })
             )
+        try:
+            return self.engine.execute_mutation(upd_tab03_rav, depth=depth)
+        except Exception as err:
+            BatchLogger.error(
+            "DB-UPD-T03-RAV-ERR",
+            f"Errore DB durante UPDATE ADCFRT03 a '0Q' "
+                 f"[CSTACAR= {ctx.ws_cstacar}]: {err}",
+                 depth=depth, is_last=True)
+            ctx.indic_errore = "X"
+            raise
 
-        righe_impattate = self.engine.execute_mutation(upd_tab03_rav, depth=depth + 1)
-        BatchLogger.info("UPD-STATO-T03", f"UPDATE ADCTET03 -> CSTACAR= {ctx.ws_cstacar} (Righe impattate: {righe_impattate})",
-                             depth=depth)
-
-    def _delete_t03_key(self, ctx: PreparazionePostalizzazioneContext, depth: int = 2) -> None:
+    def _delete_t03_key(self, ctx: PreparazionePostalizzazioneContext, depth: int = 2) -> int:
         # Ref. COBOL DELETE-T03-KEY
         # Cancellazione fisica dalla ADCFRT03 per chiave
+        BatchLogger.info(
+            "DELETE-T03-KEY",
+            f"Delete tabella ADCFRT03 per CESA= {ctx.cesa}, ACAR = {ctx.annoCartella} e NCAR = {ctx.numeroCartella}",
+            depth=depth
+        )
 
         delete_t03_key = (
             self.engine.dataset("ADCFRT03")
@@ -423,14 +450,28 @@ class ElaborazioneCicloCurt03Step:
                 .filter_by("statoCartella", "IN", ("G", "R"))
                 .compile_delete()
             )
+        try:
+            righe = self.engine.execute_mutation(delete_t03_key, depth=depth)
+            return righe
+        except Exception as e:
+            BatchLogger.error(
+                "DELETE-T03-KEY-ERRORE",
+                f"Fallita cancellazione CESA= {ctx.cesa}, ACAR = {ctx.annoCartella} e NCAR = {ctx.numeroCartella}: {e}",
+                depth=depth, is_last=True
+            )
+            raise
 
-        righe_impattate = self.engine.execute_mutation(delete_t03_key, depth=depth + 1)
-        BatchLogger.info("DELETE-T03", f"DELETE ADCFRT03 -> CESA= {ctx.cesa}, ACAR = {ctx.annoCartella} e NCAR = {ctx.numeroCartella}(Righe impattate: {righe_impattate})", depth=depth)
 
-    def _aggiorna_t03(self, ctx: PreparazionePostalizzazioneContext,
-                            depth: int = 2) -> None:
+    def _aggiorna_t03(self, ctx: PreparazionePostalizzazioneContext, is_last: bool = False, depth: int = 2) -> None:
         """Aggiorna la tabella ADCFRT03 impostando lo stato dell'avviso a 'Q'
          e inserisce il campo RAV-17 calcolato"""
+
+        righe_impattate = self._db_update_t03(ctx, depth=depth)
+        BatchLogger.info("UPD-STATO-T03", f"UPDATE ADCTET03 -> CSTACAR= 'Q' (Righe impattate: {righe_impattate})",
+                             depth=depth, is_last=is_last)
+
+    def _db_update_t03(self, ctx: PreparazionePostalizzazioneContext, depth: int) -> int:
+
         upd_tab03 = (
             self.engine.dataset("ADCFRT03")
             .filter_by("codConcessione", "=", ctx.cesa)
@@ -443,11 +484,16 @@ class ElaborazioneCicloCurt03Step:
                     "timestampUpdStato" : datetime.now()
                 })
             )
-
-        righe_impattate = self.engine.execute_mutation(upd_tab03, depth=depth + 1)
-        BatchLogger.info("UPD-STATO-T03", f"UPDATE ADCTET03 -> CSTACAR= 'Q' (Righe impattate: {righe_impattate})",
-                             depth=depth)
-
+        try:
+            return self.engine.execute_mutation(upd_tab03, depth=depth)
+        except Exception as err:
+            BatchLogger.error(
+            "DB-UPD-T03-ERR",
+            f"Errore DB durante UPDATE ADCFRT03 a 'Q' "
+                 f"[CSTACAR= {ctx.ws_cstacar}]: {err}",
+                 depth=depth, is_last=True)
+            ctx.indic_errore = "X"
+            raise
 
 class ElaborazioneCurt03Step:
     """ELABORAZIONE - Apertura cursore su ADCFRT03"""
@@ -470,6 +516,7 @@ class ElaborazioneCurt03Step:
 
             if tot_cartelle == 0:
                 BatchLogger.info("SCAN-CARTELLE-T03", "Nessuna cartella esattoriale rilevata in stato G o R", depth=depth+1)
+                raise
 
             BatchLogger.info("SCAN-CARTELLE-T03", f"Cartelle esattoriali rilevate in stato G o R: {tot_cartelle}",
                              depth=depth+1)
@@ -613,6 +660,7 @@ class ElaborazioneCurt17Step:
             # Rif. COBOL: IF SQL-KEY-NON-TROVATA -> SEGNALA-LOG-001 (avviso, non blocca)
             if tot_sedi == 0:
                 BatchLogger.warn("CURT17", "Nessuna sede operativa trovata su ADCTET17 (CDAS='IF')", depth=depth + 1)
+                raise
 
             # PERFORM UNTIL FINE-CURT17 OR ERRORE
             for idx, row in enumerate(rows, start=1):

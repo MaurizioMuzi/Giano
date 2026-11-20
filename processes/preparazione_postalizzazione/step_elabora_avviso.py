@@ -1,5 +1,6 @@
 # processes/preparazione_postalizzazione/step_elabora_avviso.py
 from datetime import date, datetime
+from typing import List, Any
 
 from core.batch_logger import BatchLogger
 from .context import PreparazionePostalizzazioneContext
@@ -22,107 +23,76 @@ class DettaglioElaboraAvviso:
     def execute_dettaglio(self, ctx: PreparazionePostalizzazioneContext, depth: int = 1) -> None:
         BatchLogger.info("CURSORE-CURT01", "Estrazione delle partite su ADCFRT01", depth=1)
         t01_map = self.engine.get_table_map("ADCFRT01")
+        t14_map = self.engine.get_table_map("ADCFRT14")
+        try:
+            rows_t01 = self._db_fetch_curt01(ctx, depth=depth+1)
+            tot_t01 = len(rows_t01)
 
-        # Equivalente di OPEN-CURT01 + FETCH-CURT01: CURSORE DI ESTRAZIONE DELLE PARTITE SU ADCFRT01
-        query = (
-            self.engine.dataset("ADCFRT01")
-            .select("gestione", "codiceAtto", "codiceFiscale", "sede", "zona",
-                    "codCentro", "partitaIva", "dataInf", "dataNot", "codDipendente", "dataRifCon",
-                    "codAzienda", "descrizioneAtto", "annoEmissione", "numEmissione", "numInail", "codSegnalazione",
-                    "flgDecadenza", "meseInizioPeriodo", "meseFinePeriodo", "dataFallimento", "numSogg", "numRate",
-                    "statoAttivita", "codEsattoria", "flgValFiscale", "annoRifRuolo", "numRuolo", "flgEuro", "codEsattoriaDel",
-                    "annoCarico", "numCarico", "numChkCarico", "dataTransizioneStato", "flgIscrizione", "flgCessione", "codCausale",
-                    "codFasAmm", "statoAzienda", "dataStatoAzienda", "descrizioneAttoBi", "timestampInsStato", "timestampVarStato",
-                    "tipoAvviso", "annoAvviso", "progAvviso", "numPartitaAvviso", "numEspAvviso", "periodo", "periodoBi", "sedeOrigine",
-                    "flgSanzioni", "flgCessioneRuolo", "flgRateizzazione", "codEsattoriaAvviso", "codiceErrore", "flgSanzioniAdr")
-            .filter_by("codEsattoria", "=", ctx.cesa)
-            .filter_by("annoCarico", "=", ctx.annoCartella)
-            .filter_by("numCarico", "=", ctx.numeroCartella)
-            .filter_by("numChkCarico", "=", ctx.chkCartella)
-            .order_by("numEspAvviso")
-            .with_uncommitted_read()
-            .limit(1) #da verificare che sia solo un record
-            .compile_select()
-        )
-        rows_t01 = self.engine.fetch(query, depth=1)
+            if not rows_t01:
+                BatchLogger.error("SELECT-ADCFRT01", f"Nessun record attivo su ADCFRT01", depth=depth+1, is_last=True)
 
-        if rows_t01:
             row_t01 = t01_map.normalize(rows_t01[0])
 
             ctx.ws_cges = row_t01.get("gestione")
-            ctx.cseg = row_t01.get("codSegnalazione")
             ctx.catt = row_t01.get("codiceAtto")
-            ctx.nesp = row_t01.get("numEspAvviso")
-            ctx.tipoavv = row_t01.get("tipoAvviso")
-            ctx.sattbi = row_t01.get("descrizioneAttoBi")
-            ctx.satt = row_t01.get("descrizioneAtto")
-            ctx.sede = row_t01.get("sedeOrigine")
-            ctx.flagSanzioni = row_t01.get("flgSanzioni")
-            ctx.cazi = row_t01.get("codAzienda")
-            ctx.dfal = row_t01.get("dataFallimento")
 
-        else:
-            BatchLogger.error("SELECT-ADCFRT01", f"Nessun record attivo su ADCFRT01", depth=1, is_last=True)
-            ctx.indic_errore = "X"
-            return
+            # SELECT su ADCFRT14: estrazione dati intestatario dell'avviso addebito
+            rows_t14 = self._select_t14(ctx, depth=depth+1)
 
-        # SELECT su ADCFRT14: estrazione dati intestatario dell'avviso addebito
-        t14_map = self.engine.get_table_map("ADCFRT14")
+            if not rows_t14:
+                BatchLogger.error("SELECT-ADCFRT14", f"Nessun intestatario trovato su ADCFRT14 con CGES= {ctx.ws_cges} e CATT = {ctx.catt}",
+                                  depth=depth+1, is_last=True)
 
-        query_t14 = (
-            self.engine.dataset("ADCFRT14")
-            .select("gestione", "codiceAtto", "partitaIva", "codiceFiscale", "cognome",
-                    "nome", "sesso", "dataNascita", "comuneNascita", "provinciaNascita", "indirizzo",
-                    "numeroCivico", "letteraCivico", "numeroChilometro", "cap","localita", "siglaProvincia",
-                    "comuneDomicilio", "indAnagrafeTrib", "capAnagrafeTrib", "siglaProvAnagrafeTrib", "locAnagrafeTrib"
-                    "comuneAnagrafeTrib", "dataValidDoc", "pec"
-                    )
-            .filter_by("gestione", "=", ctx.ws_cges)
-            .filter_by("codiceAtto", "=", ctx.catt)
-            .filter_by("codiceAnag", "=", "I")
-            .compile_select()
-        )
-        rows_t14 = self.engine.fetch(query_t14, depth=depth)
-
-        if rows_t14:
             row_t14 = t14_map.normalize(rows_t14[0])
-        else:
-            BatchLogger.error("SELECT-ADCFRT14", f"Nessun intestatario trovato su ADCFRT14 con CGES= {ctx.ws_cges} e CATT = {ctx.catt}",
-                              depth=1, is_last=True)
+
+            self._valorizza_t12(ctx, rowt01 = row_t01, rowt14 = row_t14, depth=depth+1)
+            self._ctrl_sedi_chiuse(ctx, depth=depth+1)
+            self._inserisci_t12(ctx, depth=depth+1)
+
+            # Apertura cursore su ADCFRT14 per estrazione delle occorrenze con CANA = 'IP'
+            # inserimento delle stesse su ADCAVV22
+            self.step_curt_14.execute_dettaglio(ctx, rowt01 = row_t01, depth=depth+1)
+
+            # Rif. COBOL: PERFORM CICLO-CURT01 UNITL FINE-CURT01
+            for idx, row_t01 in enumerate(rows_t01, start=1):
+                is_last = (idx == tot_t01)
+
+                ctx.ws_cges = row_t01.get("gestione")
+                ctx.cseg = row_t01.get("codSegnalazione")
+                ctx.catt = row_t01.get("codiceAtto")
+                ctx.nesp = row_t01.get("numEspAvviso")
+                ctx.tipoavv = row_t01.get("tipoAvviso")
+                ctx.sattbi = row_t01.get("descrizioneAttoBi")
+                ctx.satt = row_t01.get("descrizioneAtto")
+                ctx.sede = row_t01.get("sedeOrigine")
+                ctx.flagSanzioni = row_t01.get("flgSanzioni")
+                ctx.cazi = row_t01.get("codAzienda")
+                ctx.dfal = row_t01.get("dataFallimento")
+
+                BatchLogger.info(
+                    "PARTITE-ESTRATTE-ADCFRT01",
+                    f"[{idx}/{tot_t01}]",
+                    depth=depth + 1,
+                    is_last=False
+                )
+
+                self.step_ciclo_curt_01.execute_dettaglio(
+                    ctx=ctx,
+                    depth=depth + 1,
+                    is_last=is_last
+                )
+
+            # UPDATE-T01
+            self._aggiorna_t01(ctx,depth=depth+1)
+
+        except Exception as err:
+            BatchLogger.error(
+                "ELABORA-AVVISO-ERR",
+                f"Errore critico durante scrittura su tabelle di postalizzazione: {err}",
+                depth=depth
+                )
             ctx.indic_errore = "X"
-            return
-
-
-        self._valorizza_t12(ctx, rowt01 = row_t01, rowt14 = row_t14, depth=depth+1)
-        self._ctrl_sedi_chiuse(ctx, depth=depth+1)
-        self._inserisci_t12(ctx, depth=depth+1)
-
-        # Apertura cursore su ADCFRT14 per estrazione delle occorrenze con CANA = 'IP'
-        # inserimento delle stesse su ADCAVV22
-        self.step_curt_14.execute_dettaglio(ctx, rowt01 = row_t01, depth=depth)
-
-        # Apertura cursore su ADCFRT01 per elaborazione partite che confluiscono in un unico avviso
-        tot_t01 = len(rows_t01)
-
-        for idx, row_t01 in enumerate(rows_t01, start=1):
-            is_last = (idx == tot_t01)
-
-            BatchLogger.info(
-                "PARTITE-ESTRATTE-ADCFRT01",
-                f"[{idx}/{tot_t01}]",
-                depth=depth + 1,
-                is_last=False
-            )
-
-            self.step_ciclo_curt_01.execute_dettaglio(
-                ctx=ctx,
-                #row=row_t01,
-                depth=depth + 1
-                #is_last=is_last
-            )
-
-        # UPDATE-T01
-        self._aggiorna_t01(ctx, depth)
+            raise
 
     def _valorizza_t12(self, ctx: PreparazionePostalizzazioneContext, rowt01, rowt14, is_last: bool = False,
                                  depth: int = 2) -> None:
@@ -143,6 +113,7 @@ class DettaglioElaboraAvviso:
 
         mappa = prgcens_bolzano if ctx.cesa == 21 else prgcens_no_bolzano
 
+        # DETERMINA-PRGCENS
         if ctx.ws_cges in mappa:
                 ctx.prgcens = mappa[ctx.ws_cges]
 
@@ -163,16 +134,12 @@ class DettaglioElaboraAvviso:
                     ]
         ws_sede = "".join(val_sede)[:4]
 
-        ctx.cazi = (rowt01.get("codAzienda") or "").ljust(10)
+        cazi = (rowt01.get("codAzienda") or "").ljust(10)
         if ctx.ws_cges == 'L':
             # CAZI(1:6) -> CODMAT(1:6), '/' -> CODMAT(7:1), CAZI(7:4) -> CODMAT(8:3)
-            codiceMatricola = ctx.cazi[0:6] + "/" + ctx.cazi[6:9]
+            codiceMatricola = cazi[0:6] + "/" + cazi[6:9]
         else:
-            codiceMatricola = ctx.cazi
-        # BatchLogger.info("CODICE-MATRICOLA-CDCAVV12",
-        #                  f"CODMAT = {ctx.avv12['codMatricola']}",
-        #                  depth=depth,
-        #                  is_last=is_last)
+            codiceMatricola = cazi
 
         cfis = str(rowt14.get("codiceFiscale") or "")
         scog = str(rowt14.get("cognome") or "")
@@ -206,51 +173,44 @@ class DettaglioElaboraAvviso:
             # formattati nel campo ws_sind_dest
             BatchLogger.debug(
                 "VALORIZZA-IND-DAGEST",
-                f"Indirizzo forzato dalla gestione",
-                depth=depth
+                f"Valorizzazione indirizzo dalla gestione",
+                depth=depth+1
             )
             t14_ind = self.engine.get_table_map("ADCFRT14")
+            try:
+                rows_t14_ind = self._select_t14_ind(ctx, depth=depth)
 
-            query_t14_ind = (
-                self.engine.dataset("ADCFRT14")
-                .select("gestione", "codiceAtto", "partitaIva", "codiceFiscale", "cognome",
-                        "nome", "sesso", "dataNascita", "comuneNascita", "provinciaNascita", "indirizzo",
-                        "numeroCivico", "letteraCivico", "numeroChilometro", "cap", "localita", "siglaProvincia",
-                        "comuneDomicilio", "indAnagrafeTrib", "capAnagrafeTrib", "siglaProvAnagrafeTrib",
-                        "locAnagrafeTrib"
-                        "comuneAnagrafeTrib", "dataValidDoc", "pec"
-                        )
-                .filter_by("gestione", "=", ctx.ws_cges)
-                .filter_by("codiceAtto", "=", ctx.catt)
-                .filter_by("codiceAnag", "=", "I")
-                .compile_select()
-            )
-            rows_t14_ind = self.engine.fetch(query_t14_ind, depth=depth)
+                if not rows_t14_ind:
+                    BatchLogger.error("SELECT-ADCFRT14-IND",
+                                      f"Nessun indirizzo trovato su ADCFRT14 con CGES= {ctx.ws_cges} e CATT = {ctx.catt}",
+                                      depth=depth+1, is_last=True)
 
+                row_t14_ind = t14_ind.normalize(rows_t14_ind[0])
+                ws_sind_dest = self._componi_indirizzo(rowt14 = row_t14_ind)
 
-            if not rows_t14_ind:
-                BatchLogger.error("SELECT-ADCFRT14-IND",
-                                  f"Nessun indirizzo trovato su ADCFRT14 con CGES= {ctx.ws_cges} e CATT = {ctx.catt}",
-                                  depth=1, is_last=True)
+                #self._valorizza_ind_dagest(ctx, row = rowt01, depth= depth)
+                indirizzoDest = ws_sind_dest
+                capDest = rowt14.get("capAnagrafeTrib")
+                provDest = rowt14.get("siglaProvAnagrafeTrib")
+                comuneDest = rowt14.get("locAnagrafeTrib")
+                codComuneDest = rowt14.get("comuneAnagrafeTrib")
+                indDest = rowt14.get("indirizzo")
+                numCivDest = rowt14.get("numeroCivico")
+                letCivDest = rowt14.get("letteraCivico")
+                numKmDest = rowt14.get("numeroChilometro")
+                flagInd = '1'
+
+            except Exception as err:
+                BatchLogger.error(
+                    "SELECT-ADCFRT14-IND",
+                    f"Errore critico durante SELECT-ADCFRT14-IND: {err}",
+                    depth=depth
+                )
                 ctx.indic_errore = "X"
-                return
-
-            ws_sind_dest = t14_ind.normalize(rows_t14_ind[0])
-
-            #self._valorizza_ind_dagest(ctx, row = rowt01, depth= depth)
-            indirizzoDest = ws_sind_dest
-            capDest = rowt14.get("capAnagrafeTrib")
-            provDest = rowt14.get("siglaProvAnagrafeTrib")
-            comuneDest = rowt14.get("locAnagrafeTrib")
-            codComuneDest = rowt14.get("comuneAnagrafeTrib")
-            indDest = rowt14.get("indirizzo")
-            numCivDest = rowt14.get("numeroCivico")
-            letCivDest = rowt14.get("letteraCivico")
-            numKmDest = rowt14.get("numeroChilometro")
-            flagInd = '1'
+                raise
 
         # Calcolo CIN-RAV per inserirlo nel campo del codiceRav della tabella AVV12
-        self._calcola_cin_rav(ctx, depth)
+        self._calcola_cin_rav(ctx, depth+1)
 
         if ctx.ws_cges in ['E','F']:
             dataNotificaDeb = rowt01.get("dataNot")
@@ -394,36 +354,38 @@ class DettaglioElaboraAvviso:
         t_agesedi_map = self.engine.get_table_map("AGESEDI")
 
         ws_sszz = self.record_avv12["sedeMittente"]
+        try:
+            # Select su AGESEDI
+            rows_agesedi = self._select_agesedi(ctx, depth=depth)
 
-        # Select su AGESEDI
-        query_sedi = (
-            self.engine.dataset("AGESEDI")
-            .select("flagatt")
-            .filter_by("sszz", "=", ws_sszz)
-            .compile_select()
-        )
-        rows_agesedi = self.engine.fetch(query_sedi, depth=1)
-
-        if not rows_agesedi:
-            BatchLogger.error("SELECT-AGESEDI", f"Sede inesistente in AGESEDI", depth=1, is_last=True)
-            ctx.indic_errore = "X"
-            return
-
-        row_agesedi = t_agesedi_map.normalize(rows_agesedi[0])
-
-        if row_agesedi.get("flagatt") == '3':
-            if ws_sszz == '7005':
-                self.record_avv12["sedeInd"] = '7000'
-            elif ws_sszz == '5103':
-                self.record_avv12["sedeInd"] = '5105'
-            elif ws_sszz == '4892':
-                self.record_avv12["sedeInd"] = '4894'
-            else:
+            if not rows_agesedi:
+                BatchLogger.error("SELECT-AGESEDI", f"Sede inesistente in AGESEDI", depth=1, is_last=True)
                 ctx.indic_errore = "X"
-                BatchLogger.error("SEGNALAZIONE", f"Manca sede alternativa a sede chiusa, SEDE = {ws_sszz}", depth=depth+1, is_last=True)
-                #TORNA-ERRORE: EXEC SQL ROLLBACK
-        else:
-            self.record_avv12["sedeInd"] = ws_sszz
+                raise
+
+            row_agesedi = t_agesedi_map.normalize(rows_agesedi[0])
+
+            if row_agesedi.get("flagatt") == '3':
+                if ws_sszz == '7005':
+                    self.record_avv12["sedeInd"] = '7000'
+                elif ws_sszz == '5103':
+                    self.record_avv12["sedeInd"] = '5105'
+                elif ws_sszz == '4892':
+                    self.record_avv12["sedeInd"] = '4894'
+                else:
+                    ctx.indic_errore = "X"
+                    BatchLogger.error("SEGNALAZIONE", f"Manca sede alternativa a sede chiusa, SEDE = {ws_sszz}", depth=depth+1, is_last=True)
+                    #TORNA-ERRORE: EXEC SQL ROLLBACK
+            else:
+                self.record_avv12["sedeInd"] = ws_sszz
+        except Exception as err:
+            BatchLogger.error(
+                "CTRL-SEDI-CHIUSE-ERR",
+                f"Errore critico durante controllo sulle sedi chiuse.: {err}",
+                    depth=depth
+            )
+            ctx.indic_errore = "X"
+            raise
 
     def _inserisci_t12(self, ctx: PreparazionePostalizzazioneContext, depth: int) -> None:
         """
@@ -448,15 +410,135 @@ class DettaglioElaboraAvviso:
         except:
             ctx.indic_errore = "X"
             BatchLogger.error(
-                "INSERT-ADCAVV12E",
+                "INSERT-ADCAVV12-Err",
                 f"Fallito inserimento avviso in ADCAVV12 (Codice avviso: {ctx.ws_codavv})",
-                depth=2, is_last=True
+                depth=depth, is_last=True
             )
             raise
 
-    def _aggiorna_t01(self, ctx: PreparazionePostalizzazioneContext, depth: int = 2) -> None:
-        """Aggiorna stato della tabella ADCFRT01, CSTAATT = '0Q'"""
+    # =========================================================================
+    # ACCESSI AL DATABASE (ISOLATI CON TRY-EXCEPT PUNTUALI)
+    # =========================================================================
+    def _db_fetch_curt01(self, ctx:PreparazionePostalizzazioneContext, depth: int) -> List[Any]:
+        """Accesso atomico DB: recupera le partite su ADCFRT01"""
+        # Equivalente di OPEN-CURT01 + FETCH-CURT01: CURSORE DI ESTRAZIONE DELLE PARTITE SU ADCFRT01
+        query = (
+            self.engine.dataset("ADCFRT01")
+            .select("gestione", "codiceAtto", "codiceFiscale", "sede", "zona",
+                    "codCentro", "partitaIva", "dataInf", "dataNot", "codDipendente", "dataRifCon",
+                    "codAzienda", "descrizioneAtto", "annoEmissione", "numEmissione", "numInail", "codSegnalazione",
+                    "flgDecadenza", "meseInizioPeriodo", "meseFinePeriodo", "dataFallimento", "numSogg", "numRate",
+                    "statoAttivita", "codEsattoria", "flgValFiscale", "annoRifRuolo", "numRuolo", "flgEuro", "codEsattoriaDel",
+                    "annoCarico", "numCarico", "numChkCarico", "dataTransizioneStato", "flgIscrizione", "flgCessione","codCausale",
+                    "codFasAmm", "statoAzienda", "dataStatoAzienda", "descrizioneAttoBi", "timestampInsStato", "timestampVarStato",
+                    "tipoAvviso", "annoAvviso", "progAvviso", "numPartitaAvviso", "numEspAvviso", "periodo",
+                    "periodoBi", "sedeOrigine", "flgSanzioni", "flgCessioneRuolo", "flgRateizzazione",
+                    "codEsattoriaAvviso", "codiceErrore", "flgSanzioniAdr")
+            .filter_by("codEsattoria", "=", ctx.cesa)
+            .filter_by("annoCarico", "=", ctx.annoCartella)
+            .filter_by("numCarico", "=", ctx.numeroCartella)
+            .filter_by("numChkCarico", "=", ctx.chkCartella)
+            .order_by("numEspAvviso")
+            .with_uncommitted_read()
+            .compile_select()
+        )
+        try:
+            return self.engine.fetch(query, depth=depth)
+        except Exception as err:
+            BatchLogger.error(
+                "DB-FETCH-T18-ERR",
+                f"Errore DB durante la SELECT su ADCFRT01.: {err}",
+                depth=depth
+            )
+            raise
 
+    def _select_t14(self, ctx:PreparazionePostalizzazioneContext, depth: int) -> List[Any]:
+        """Accesso atomico DB: estrae i dati dell'intestatario dell'avviso da ADCFRT14"""
+        query_t14 = (
+            self.engine.dataset("ADCFRT14")
+            .select("gestione", "codiceAtto", "partitaIva", "codiceFiscale", "cognome",
+                    "nome", "sesso", "dataNascita", "comuneNascita", "provinciaNascita", "indirizzo",
+                    "numeroCivico", "letteraCivico", "numeroChilometro", "cap", "localita", "siglaProvincia",
+                    "comuneDomicilio", "indAnagrafeTrib", "capAnagrafeTrib", "siglaProvAnagrafeTrib", "locAnagrafeTrib",
+                    "comuneAnagrafeTrib", "dataValidDoc", "pec"
+                    )
+            .filter_by("gestione", "=", ctx.ws_cges)
+            .filter_by("codiceAtto", "=", ctx.catt)
+            .filter_by("codiceAnag", "=", "I")
+            .compile_select()
+        )
+        try:
+            return self.engine.fetch(query_t14, depth=depth)
+        except Exception as err:
+            BatchLogger.error(
+                "SELECT-T14-ERR",
+                f"Errore DB durante la SELECT su ADCFRT14.: {err}",
+                depth=depth
+            )
+            raise
+
+    def _select_t14_ind(self, ctx:PreparazionePostalizzazioneContext, depth: int) -> List[Any]:
+        """Accesso atomico DB: In caso di indirizzo forzato dalla gestione (FVALFIS 2 o 3)
+        si selezionano i dati dell'indirizzo formattati nel campo WS-SIND-DEST da ADCFRT14"""
+        query_t14_ind = (
+            self.engine.dataset("ADCFRT14")
+            .select("indirizzo", "numeroCivico", "letteraCivico", "numeroChilometro" )
+            .filter_by("gestione", "=", ctx.ws_cges)
+            .filter_by("codiceAtto", "=", ctx.catt)
+            .filter_by("codiceAnag", "=", "I")
+            .compile_select()
+        )
+        try:
+            return self.engine.fetch(query_t14_ind, depth=depth)
+        except Exception as err:
+            BatchLogger.error(
+                "SELECT-T14-IND-ERR",
+                f"Errore DB durante la SELECT su ADCFRT14 per recupero indirizzo.: {err}",
+                depth=depth
+            )
+            raise
+
+    def _componi_indirizzo(self, rowt14) -> str:
+        """Rif. COBOL: CASE su ADCFRT14 -> WS-SIND-DEST."""
+        sind = (rowt14.get("indirizzo") or "").rstrip()  # RTRIM(SIND)
+        nciv = rowt14.get("numeroCivico") or ""
+        cciv = rowt14.get("letteraCivico") or ""
+        nkim = rowt14.get("numeroChilometro")
+
+        if nciv.rstrip() != "":  # WHEN NCIV > ' '
+            return f"{sind} {nciv.lstrip('0')}{cciv}"  # STRIP(NCIV,L,'0') + CCIV
+        if nkim and int(nkim) > 0:  # WHEN NKIM > 0
+            return f"{sind} {int(nkim)}"  # CHAR(NKIM)
+        return sind  # ELSE RTRIM(SIND)
+
+    def _select_agesedi(self, ctx:PreparazionePostalizzazioneContext, depth: int) -> List[Any]:
+        """Accesso atomico DB: Select su AGESEDI per controllare le sedi chiuse."""
+        # Select su AGESEDI
+        query_sedi = (
+            self.engine.dataset("AGESEDI")
+            .select("flagatt")
+            .filter_by("sszz", "=", self.record_avv12["sedeMittente"])
+            .compile_select()
+        )
+        try:
+            return self.engine.fetch(query_sedi, depth=depth)
+
+        except Exception as err:
+            BatchLogger.error(
+                "SELECT-AGESEDI-ERR",
+                f"Errore DB durante la SELECT su AGESEDI per controllo sedi chiuse.: {err}",
+                depth=depth
+            )
+            raise
+    def _aggiorna_t01(self, ctx: PreparazionePostalizzazioneContext, is_last: bool = False, depth: int = 2) -> None:
+        """Aggiorna stato della tabella ADCFRT01, CSTAATT = '0Q'"""
+        righe_impattate = self._db_update_t01(ctx, depth=depth)
+        BatchLogger.info("UPD-T01", f"UPDATE ADCFRT01 -> CESA = {ctx.cesa}, ACAR = {ctx.annoCartella} e NCAR = {ctx.numeroCartella}"
+                                    f"(Righe impattate: {righe_impattate})", depth=depth, is_last=is_last)
+
+
+    def _db_update_t01(self, ctx: PreparazionePostalizzazioneContext, depth: int) -> int:
+        """Accesso atomico DB: aggiornamento massivo di fine ciclo a StatoArticolo='0Q'."""
         upd_t01 = (
             self.engine.dataset("ADCFRT01")
             .filter_by("codEsattoriaAvviso", "=", ctx.cesa)
@@ -469,6 +551,13 @@ class DettaglioElaboraAvviso:
                 "dataTransizioneStato" : date.today()
             })
         )
-
-        righe_impattate = self.engine.execute_mutation(upd_t01, depth=depth + 1)
-        BatchLogger.info("UPD-T01", f"UPDATE ADCFRT01 -> CESA = {ctx.cesa}, ACAR = {ctx.annoCartella} e NCAR = {ctx.numeroCartella}(Righe impattate: {righe_impattate})", depth=depth)
+        try:
+            return self.engine.execute_mutation(upd_t01, depth=depth)
+        except Exception as err:
+            BatchLogger.error(
+            "DB-UPD-T01-ERR",
+            f"Errore DB durante UPDATE ADCFRT01 a '0Q' "
+                 f"[CESA = {ctx.cesa}, ACAR = {ctx.annoCartella} e NCAR = {ctx.numeroCartella}]: {err}",
+                 depth=depth, is_last=True)
+            ctx.indic_errore = "X"
+            raise
