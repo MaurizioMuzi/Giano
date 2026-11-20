@@ -1,0 +1,47 @@
+{
+  "table": {
+    "db2": "DTPT03.ADCAVV24",
+    "sqlserver": "ADCAVV24"
+  },
+  "columns": {
+    "gestione": {
+      "db2": "CGES",
+      "sqlserver": "Gestione",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codiceAtto": {
+      "db2": "CATT",
+      "sqlserver": "CodiceAtto",
+      "logical_type": "string",
+      "padding": true
+    },
+    "progrCausale": {
+      "db2": "NESPCAU",
+      "sqlserver": "ProgrCausale",
+      "logical_type": "decimal"
+    },
+    "codiceCausale": {
+      "db2": "CCAU",
+      "sqlserver": "CodiceCausale",
+      "logical_type": "decimal"
+    },
+    "identificativoAvviso": {
+      "db2": "IDAVV",
+      "sqlserver": "IdentificativoAvviso",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codiceAvviso": {
+      "db2": "CODAVV",
+      "sqlserver": "CodiceAvviso",
+      "logical_type": "string",
+      "padding": true
+    },
+    "timestampIns": {
+      "db2": "TMSINS",
+      "sqlserver": "TimestampIns",
+      "logical_type": "datetime"
+    }
+  }
+}

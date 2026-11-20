@@ -1,0 +1,62 @@
+{
+  "record_type": "R7D",
+  "description": "Record descrizione partita ",
+  "record_length": 750,
+  "fields": {
+    "tipoRecord": {
+      "logical_type": "string",
+      "len": 3,
+      "padding": true,
+      "default": "R7D"
+    },
+    "progRecord": {
+      "logical_type": "int",
+      "len": 7,
+      "padding": true
+    },
+    "codEnteImpos": {
+      "logical_type": "int",
+      "len": 5,
+      "padding": true
+    },
+    "codAmbito": {
+      "logical_type": "int",
+      "len": 3,
+      "padding": true
+    },
+    "annoNumRuolo": {
+      "logical_type": "string",
+      "len": 10,
+      "padding": true
+    },
+    "identPartita": {
+      "logical_type": "string",
+      "len": 96,
+      "padding": true,
+      "default": ""
+    },
+    "descrizione": {
+      "logical_type": "string",
+      "len": 60,
+      "padding": true,
+      "default": ""
+    },
+    "campiCartella": {
+      "logical_type": "string",
+      "len": 9,
+      "padding": true,
+      "default": ""
+    },
+    "descrBilingue": {
+      "logical_type": "string",
+      "len": 60,
+      "padding": true,
+      "default": ""
+    },
+    "R7DTappo": {
+      "logical_type": "string",
+      "len": 497,
+      "padding": true
+    }
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "table": {
+    "db2": "DTPT03.ADC10DEL",
+    "sqlserver": "ADC10DEL"
+  },
+  "columns": {
+    "gestione": {
+      "db2": "CGES",
+      "sqlserver": "Gestione",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codiceAtto": {
+      "db2": "CATT",
+      "sqlserver": "CodiceAtto",
+      "logical_type": "string",
+      "padding": true
+    },
+    "progArticolo": {
+      "db2": "NPRGART",
+      "sqlserver": "ProgArticolo",
+      "logical_type": "int"
+    },
+    "timestampIns": {
+      "db2": "TMS_INS",
+      "sqlserver": "TmpIns",
+      "logical_type": "datetime"
+    },
+    "timestampDel": {
+      "db2": "TMS_DEL",
+      "sqlserver": "TmpDel",
+      "logical_type": "datetime"
+    }
+  }
+}

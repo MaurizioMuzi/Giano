@@ -1,0 +1,90 @@
+{
+  "table": {
+    "db2": "DTPT03.ADCFRTCE",
+    "sqlserver": "ADCFRTCE"
+  },
+  "columns": {
+    "codEsattoria": {
+      "db2": "CESA",
+      "sqlserver": "CodEsattoria",
+      "logical_type": "decimal"
+    },
+    "descConcess": {
+      "db2": "DESC_CONCESS",
+      "sqlserver": "DescConcess",
+      "logical_type": "string",
+      "padding": true
+    },
+    "provincia": {
+      "db2": "PROVINCIA",
+      "sqlserver": "Provincia",
+      "logical_type": "string",
+      "padding": true
+    },
+    "swhouse": {
+      "db2": "SWHOUSE",
+      "sqlserver": "Swhouse",
+      "logical_type": "string",
+      "padding": true
+    },
+    "siglaProv": {
+      "db2": "SIGLA_PROV",
+      "sqlserver": "SiglaProv",
+      "logical_type": "string",
+      "padding": true
+    },
+    "regione": {
+      "db2": "REGIONE",
+      "sqlserver": "Regione",
+      "logical_type": "string",
+      "padding": true
+    },
+    "descBanca": {
+      "db2": "DESC_BANCA",
+      "sqlserver": "DescBanca",
+      "logical_type": "string",
+      "padding": true
+    },
+    "cin": {
+      "db2": "CIN",
+      "sqlserver": "Cin",
+      "logical_type": "string",
+      "padding": true
+    },
+    "abi": {
+      "db2": "ABI",
+      "sqlserver": "Abi",
+      "logical_type": "string",
+      "padding": true
+    },
+    "cab": {
+      "db2": "CAB",
+      "sqlserver": "Cab",
+      "logical_type": "string",
+      "padding": true
+    },
+    "conto": {
+      "db2": "CONTO",
+      "sqlserver": "Conto",
+      "logical_type": "string",
+      "padding": true
+    },
+    "beneficiario": {
+      "db2": "BENEFICIARIO",
+      "sqlserver": "Beneficiario",
+      "logical_type": "string",
+      "padding": true
+    },
+    "iban": {
+      "db2": "IBAN",
+      "sqlserver": "Iban",
+      "logical_type": "string",
+      "padding": true
+    },
+    "tesoreria": {
+      "db2": "TESORERIA",
+      "sqlserver": "Tesoreria",
+      "logical_type": "int"
+    }
+  }
+}

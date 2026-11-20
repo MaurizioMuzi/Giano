@@ -1,0 +1,225 @@
+{
+  "table": {
+    "db2": "DTPT03.ADCFRT02",
+    "sqlserver": "ADCFRT02"
+  },
+  "columns": {
+    "codStRuolo": {
+      "db2": "CSTARUO",
+      "sqlserver": "CodStRuolo",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codEsattoria": {
+      "db2": "CESA",
+      "sqlserver": "CodEsattoria",
+      "logical_type": "int"
+    },
+    "annoRif": {
+      "db2": "ARIFRUO",
+      "sqlserver": "AnnoRif",
+      "logical_type": "int"
+    },
+    "numRuolo": {
+      "db2": "NRUO",
+      "sqlserver": "NumRuolo",
+      "logical_type": "int"
+    },
+    "sede": {
+      "db2": "CSED",
+      "sqlserver": "Sede",
+      "logical_type": "string",
+      "padding": true
+    },
+    "zona": {
+      "db2": "CZON",
+      "sqlserver": "Zona",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codCentro": {
+      "db2": "CCOP",
+      "sqlserver": "CodCentro",
+      "logical_type": "string",
+      "padding": true
+    },
+    "tipoRuolo": {
+      "db2": "CTIPRUO",
+      "sqlserver": "TipoRuolo",
+      "logical_type": "int"
+    },
+    "codRuoloCoa": {
+      "db2": "CRUO",
+      "sqlserver": "CodRuoloCoa",
+      "logical_type": "int"
+    },
+    "dataFormazione": {
+      "db2": "DISC",
+      "sqlserver": "DataFormazione",
+      "logical_type": "date"
+    },
+    "dataConsegna": {
+      "db2": "DCON",
+      "sqlserver": "DataConsegna",
+      "logical_type": "date"
+    },
+    "flgEuro": {
+      "db2": "FEUR",
+      "sqlserver": "FlgEuro",
+      "logical_type": "string",
+      "padding": true
+    },
+    "impTributo": {
+      "db2": "ITRB",
+      "sqlserver": "ImpTributo",
+      "logical_type": "int"
+    },
+    "impSanzione": {
+      "db2": "ISAN",
+      "sqlserver": "ImpSanzione",
+      "logical_type": "int"
+    },
+    "impInteressi": {
+      "db2": "IINT",
+      "sqlserver": "ImpInteressi",
+      "logical_type": "int"
+    },
+    "impAltro": {
+      "db2": "IALT",
+      "sqlserver": "ImpAltro",
+      "logical_type": "int"
+    },
+    "impAggioAnticipato": {
+      "db2": "IAGGANT",
+      "sqlserver": "ImpAggioAnticipato",
+      "logical_type": "int"
+    },
+    "impAggioTot": {
+      "db2": "IAGGTOT",
+      "sqlserver": "ImpAggioTot",
+      "logical_type": "int"
+    },
+    "impCarico": {
+      "db2": "ICRC",
+      "sqlserver": "ImpCarico",
+      "logical_type": "int"
+    },
+    "impArrotondamento": {
+      "db2": "IARR",
+      "sqlserver": "ImpArrotondamento",
+      "logical_type": "int"
+    },
+    "impImponibile": {
+      "db2": "IIMP",
+      "sqlserver": "ImpImponibile",
+      "logical_type": "int"
+    },
+    "aliqIva": {
+      "db2": "PIVA",
+      "sqlserver": "AliqIva",
+      "logical_type": "int"
+    },
+    "impIva": {
+      "db2": "IIVA",
+      "sqlserver": "ImpIva",
+      "logical_type": "int"
+    },
+    "dataVisto": {
+      "db2": "DFIR",
+      "sqlserver": "DataVisto",
+      "logical_type": "date"
+    },
+    "codDipendente": {
+      "db2": "CDIP",
+      "sqlserver": "CodDipendente",
+      "logical_type": "string",
+      "padding": true
+    },
+    "dataInvioCNC": {
+      "db2": "DINV",
+      "sqlserver": "DataInvioCNC",
+      "logical_type": "date"
+    },
+    "numRecRuolo": {
+      "db2": "NRECRUO",
+      "sqlserver": "NumRecRuolo",
+      "logical_type": "int"
+    },
+    "numRecR5B": {
+      "db2": "NRECR5B",
+      "sqlserver": "NumRecR5B",
+      "logical_type": "int"
+    },
+    "numRecR7A": {
+      "db2": "NRECR7A",
+      "sqlserver": "NumRecR7A",
+      "logical_type": "int"
+    },
+    "numRecR7B": {
+      "db2": "NRECR7B",
+      "sqlserver": "NumRecR7B",
+      "logical_type": "int"
+    },
+    "numRecR7C": {
+      "db2": "NRECR7C",
+      "sqlserver": "numRecR7C",
+      "logical_type": "int"
+    },
+    "numRecR7D": {
+      "db2": "NRECR7D",
+      "sqlserver": "numRecR7D",
+      "logical_type": "int"
+    },
+    "numRecR7E": {
+      "db2": "NRECR7E",
+      "sqlserver": "numRecR7E",
+      "logical_type": "int"
+    },
+    "numRecR7G": {
+      "db2": "NRECR7G",
+      "sqlserver": "numRecR7G",
+      "logical_type": "int"
+    },
+    "anno_rif_invio": {
+      "db2": "AFILINV",
+      "sqlserver": "AnnoRif",
+      "logical_type": "int"
+    },
+    "num_file_invio": {
+      "db2": "NFILINV",
+      "sqlserver": "NumFile",
+      "logical_type": "int"
+    },
+    "dataTimbro": {
+      "db2": "DTMB",
+      "sqlserver": "DataTimbro",
+      "logical_type": "date"
+    },
+    "anno_rif_timbro": {
+      "db2": "AFILTMB",
+      "sqlserver": "Anno_rif_timbro",
+      "logical_type": "int"
+    },
+    "num_file_timbro": {
+      "db2": "NFILTMB",
+      "sqlserver": "Num_file_timbro",
+      "logical_type": "string",
+      "padding": true
+    },
+    "dataTransStato": {
+      "db2": "DTRNSTA",
+      "sqlserver": "DataTransStato",
+      "logical_type": "date"
+    },
+    "tasso": {
+      "db2": "TASSO",
+      "sqlserver": "tasso",
+      "logical_type": "decimal"
+    },
+    "numRecR7L": {
+      "db2": "NRECR7L",
+      "sqlserver": "numRecR7L",
+      "logical_type": "int"
+    }
+  }
+}

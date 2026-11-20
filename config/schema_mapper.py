@@ -95,7 +95,7 @@ class TableMap:
 class SchemaMapper:
     """Motore di caricamento dinamico on-demand per le mappature dei database (Invariato)."""
     _cache = {}
-    _MAPPINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mappings")
+    _MAPPINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mappings", "table")
 
     @classmethod
     def get_map(cls, logical_table_key: str, provider: str) -> TableMap:

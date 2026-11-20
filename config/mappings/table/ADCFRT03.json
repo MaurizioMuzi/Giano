@@ -1,0 +1,234 @@
+{
+  "table": {
+    "db2": "DTPT03.ADCFRT03",
+    "sqlserver": "ADCFRT03"
+  },
+  "columns": {
+    "codConcessione": {
+      "db2": "CESA",
+      "sqlserver": "CodConcessione",
+      "logical_type": "int"
+    },
+    "annoCartella": {
+      "db2": "ACAR",
+      "sqlserver": "AnnoCartella",
+      "logical_type": "int"
+    },
+    "numCartella": {
+      "db2": "NCAR",
+      "sqlserver": "NumCartella",
+      "logical_type": "int"
+    },
+    "chkCartella": {
+      "db2": "NCHKCAR",
+      "sqlserver": "ChkCartella",
+      "logical_type": "int"
+    },
+    "codiceFiscale": {
+      "db2": "CFIS",
+      "sqlserver": "CodiceFiscale",
+      "logical_type": "string",
+      "padding": true
+    },
+    "statoCartella": {
+      "db2": "CSTACAR",
+      "sqlserver": "StatoCartella",
+      "logical_type": "string",
+      "padding": true
+    },
+    "dataCartella": {
+      "db2": "DFOR",
+      "sqlserver": "DataCartella",
+      "logical_type": "date"
+    },
+    "impCaricoCartella": {
+      "db2": "ITRBCAR",
+      "sqlserver": "ImpCaricoCartella",
+      "logical_type": "int"
+    },
+    "divisa": {
+      "db2": "FEUR",
+      "sqlserver": "Divisa",
+      "logical_type": "string",
+      "padding": true
+    },
+    "dataNotifica": {
+      "db2": "DNOT",
+      "sqlserver": "DataNotifica",
+      "logical_type": "date"
+    },
+    "dataRegNotifica": {
+      "db2": "DNOTREG",
+      "sqlserver": "DataRegNotifica",
+      "logical_type": "date"
+    },
+    "ambitoDelegato": {
+      "db2": "CESADEL",
+      "sqlserver": "AmbitoDelegato",
+      "logical_type": "int"
+    },
+    "dataProvvDelega": {
+      "db2": "DDEL",
+      "sqlserver": "DataProvvDelega",
+      "logical_type": "date"
+    },
+    "dataRegDelega": {
+      "db2": "DDELREG",
+      "sqlserver": "DataRegDelega",
+      "logical_type": "date"
+    },
+    "annoRifFormazione": {
+      "db2": "AFILFOR",
+      "sqlserver": "annoRifFormazione",
+      "logical_type": "int"
+    },
+    "numProgrAnnoForm": {
+      "db2": "NFILFOR",
+      "sqlserver": "numProgrAnnoForm",
+      "logical_type": "int"
+    },
+    "annoRifNotifica": {
+      "db2": "AFILNOT",
+      "sqlserver": "AnnoRifNotifica",
+      "logical_type": "int"
+    },
+    "numProgrAnnoNotif": {
+      "db2": "NFILNOT",
+      "sqlserver": "NumProgrAnnoNotif",
+      "logical_type": "int"
+    },
+    "annoRifDelega": {
+      "db2": "AFILDEL",
+      "sqlserver": "AnnoRifDelega",
+      "logical_type": "int"
+    },
+    "numProgrAnnoDelega": {
+      "db2": "NFILDEL",
+      "sqlserver": "NumProgrAnnoDelega",
+      "logical_type": "int"
+    },
+    "keyTabEventi": {
+      "db2": "CKEY",
+      "sqlserver": "KeyTabEventi",
+      "logical_type": "string",
+      "padding": true
+    },
+    "soggetto": {
+      "db2": "SOGGETTO",
+      "sqlserver": "Soggetto",
+      "logical_type": "string",
+      "padding": true
+    },
+    "timestampInsStato": {
+      "db2": "TMS_INS_CSTACAR",
+      "sqlserver": "TimestampInsStato",
+      "logical_type": "datetime"
+    },
+    "timestampUpdStato": {
+      "db2": "TMS_AGG_CSTACAR",
+      "sqlserver": "TimestampUpdStato",
+      "logical_type": "datetime",
+      "padding": true
+    },
+    "codEsattoriaAvviso": {
+      "db2": "CESAAVV",
+      "sqlserver": "CodEsattoriaAvviso",
+      "logical_type": "int"
+    },
+    "idAvvisoGest": {
+      "db2": "IDGEST",
+      "sqlserver": "IdAvvisoGest",
+      "logical_type": "string",
+      "padding": true
+    },
+    "tipoAvviso": {
+      "db2": "TIPOAVV",
+      "sqlserver": "TipoAvviso",
+      "logical_type": "string",
+      "padding": true
+    },
+    "impAvvisoRav": {
+      "db2": "IAVVRAV",
+      "sqlserver": "ImpAvvisoRav",
+      "logical_type": "int"
+    },
+    "impAggio": {
+      "db2": "IAGGIO",
+      "sqlserver": "ImpAggio",
+      "logical_type": "int"
+    },
+    "numPartiteAvviso": {
+      "db2": "NUMPAR",
+      "sqlserver": "NumPartiteAvviso",
+      "logical_type": "int"
+    },
+    "codRav": {
+      "db2": "CIDERAV",
+      "sqlserver": "CodRav",
+      "logical_type": "int"
+    },
+    "esitoNotifica": {
+      "db2": "ESITONOT",
+      "sqlserver": "EsitoNotifica",
+      "logical_type": "string",
+      "padding": true
+    },
+    "motivoNotifica": {
+      "db2": "MOTNOT",
+      "sqlserver": "MotivoNotifica",
+      "logical_type": "string",
+      "padding": true
+    },
+    "annoSpedNotifca": {
+      "db2": "AFILSN",
+      "sqlserver": "AnnoSpedNotifca",
+      "logical_type": "int"
+    },
+    "numProgrAnnoSped": {
+      "db2": "NFILSN",
+      "sqlserver": "NumProgrAnnoSped",
+      "logical_type": "int"
+    },
+    "statoSped": {
+      "db2": "CSTANOT",
+      "sqlserver": "StatoSped",
+      "logical_type": "string",
+      "padding": true
+    },
+    "dataConsegna": {
+      "db2": "DCON",
+      "sqlserver": "DataConsegna",
+      "logical_type": "date"
+    },
+    "sede": {
+      "db2": "CSED",
+      "sqlserver": "Sede",
+      "logical_type": "string",
+      "padding": true
+    },
+    "zona": {
+      "db2": "CZON",
+      "sqlserver": "Zona",
+      "logical_type": "string",
+      "padding": true
+    },
+    "identificativoAvviso": {
+      "db2": "IDAVV",
+      "sqlserver": "IdentificativoAvviso",
+      "logical_type": "string",
+      "padding": true
+    },
+    "cinesi": {
+      "db2": "CINESI",
+      "sqlserver": "Cinesi",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codErroreEsito": {
+      "db2": "CERR",
+      "sqlserver": "CodErroreEsito",
+      "logical_type": "string",
+      "padding": true
+    }
+  }
+}

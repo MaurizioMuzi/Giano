@@ -1,4 +1,4 @@
-# main.py
+# FormazioneAVA.py
 import os
 import sys
 import json
@@ -17,8 +17,8 @@ from processes.invio_ruoli_AdER.context import InvioRuoliAdREContext
 # ------------------------------------------------------------------
 # 2. Preparazione Postalizzazione
 # ------------------------------------------------------------------
-from processes.preparazione_postalizzazione.context import PreparazionePostalizzazioneContext
-from processes.preparazione_postalizzazione import PreparazionePostalizzazioneEngineProcessor
+#from processes.preparazione_postalizzazione.context import PreparazionePostalizzazioneContext
+#from processes.preparazione_postalizzazione import PreparazionePostalizzazioneEngineProcessor
 
 # ------------------------------------------------------------------
 # 3. Formazione Ruoli
@@ -211,7 +211,7 @@ def main():
     # 1. Verifica presenza dell'argomento da riga di comando
     if len(sys.argv) < 2:
         print("[PARAMETRI] Errore: Numero insufficiente di parametri.", file=sys.stderr)
-        print("Utilizzo: python main.py <operation>", file=sys.stderr)
+        print("Utilizzo: python FormazioneAVA.py <operation>", file=sys.stderr)
         print(f"Operazioni ammesse: {', '.join(ELABORAZIONI_VALIDE)}", file=sys.stderr)
         sys.exit(1)
 

@@ -1,0 +1,28 @@
+{
+  "table": {
+    "db2": "DTPT03.ADCAVV01",
+    "sqlserver": "ADCAVV01"
+  },
+  "columns": {
+    "codConcessione": {
+      "db2": "CESA",
+      "sqlserver": "CodConcessione",
+      "logical_type": "int"
+    },
+    "annoAvviso": {
+      "db2": "ANNOAVV",
+      "sqlserver": "AnnoAvviso",
+      "logical_type": "int"
+    },
+    "progAvviso": {
+      "db2": "PROGAVV",
+      "sqlserver": "ProgAvviso",
+      "logical_type": "int"
+    },
+    "timestampUpd": {
+      "db2": "TMSUPD",
+      "sqlserver": "TmpUpd",
+      "logical_type": "datetime"
+    }
+  }
+}

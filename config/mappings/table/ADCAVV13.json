@@ -1,0 +1,61 @@
+{
+  "table": {
+    "db2": "DTPT03.ADCAVV13",
+    "sqlserver": "ADCAVV13"
+  },
+  "columns": {
+    "codiceAvviso": {
+      "db2": "CODAVV",
+      "sqlserver": "CodiceAvviso",
+      "logical_type": "string",
+      "padding": true
+    },
+    "identificativoAvviso": {
+      "db2": "IDAVV",
+      "sqlserver": "IdentificativoAvviso",
+      "logical_type": "string",
+      "padding": true
+    },
+    "progPartita": {
+      "db2": "NPAR",
+      "sqlserver": "ProgressivoPartita",
+      "logical_type": "int"
+    },
+    "descrizione1": {
+      "db2": "SPAR1",
+      "sqlserver": "DescrizioneParteUno",
+      "logical_type": "string",
+      "padding": true
+    },
+    "descrizione2": {
+      "db2": "SPAR2",
+      "sqlserver": "DescrizioneParteDue",
+      "logical_type": "string",
+      "padding": true
+    },
+    "descrizioneTedesco1": {
+      "db2": "SPAR_TDS1",
+      "sqlserver": "DescrizioneTedParteUno",
+      "logical_type": "string",
+      "padding": true
+    },
+    "descrizioneTedesco2": {
+      "db2": "SPAR_TDS2",
+      "sqlserver": "DescrizioneTedParteDue",
+      "logical_type": "string",
+      "padding": true
+    },
+    "descrizioneSanzioni": {
+      "db2": "SREG_SANZ",
+      "sqlserver": "DescrizioneSanzioni",
+      "logical_type": "string",
+      "padding": true
+    },
+    "descrizioneSanzioniTedesco": {
+      "db2": "SREG_SANZ_TDS",
+      "sqlserver": "DescrizioneSanzioniTedesco",
+      "logical_type": "string",
+      "padding": true
+    }
+  }
+}

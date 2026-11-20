@@ -4,6 +4,7 @@ import os
 import re
 from abc import ABC, abstractmethod
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Dict, Any, List, Union, Optional
 from config.schema_mapper import TableMap
 
@@ -430,6 +431,42 @@ class ExpressionBuilder:
         col_res = self._resolve(column_logical)
         builder = ExpressionBuilder(self._model)
         builder._compiled = template.format(column=col_res)
+        return builder
+
+    def date_sub_days(self, column_logical: str, days: int = 1, alias: Optional[str] = None) -> "ExpressionBuilder":
+        """Sottrae N giorni a una colonna data secondo il dialetto configurato (DB2 / SQL Server)."""
+        template = self._dialect.get_function_template("date_sub_days")
+        if not template:
+            raise NotImplementedError(f"Funzione date_sub_days non configurata per il dialetto {self._dialect}")
+
+        col_res = self._resolve(column_logical)
+        expr_sql = template.format(column=col_res, days=int(days))
+        if alias:
+            expr_sql = COMMON_SQL["expressions"]["column_alias"].format(
+                expression=expr_sql,
+                alias=alias
+            )
+
+        builder = ExpressionBuilder(self._model)
+        builder._compiled = expr_sql
+        return builder
+
+    def date_add_days(self, column_logical: str, days: int = 1, alias: Optional[str] = None) -> "ExpressionBuilder":
+        """Aggiunge N giorni a una colonna data secondo il dialetto configurato (DB2 / SQL Server)."""
+        template = self._dialect.get_function_template("date_add_days")
+        if not template:
+            raise NotImplementedError(f"Funzione date_add_days non configurata per il dialetto {self._dialect}")
+
+        col_res = self._resolve(column_logical)
+        expr_sql = template.format(column=col_res, days=int(days))
+        if alias:
+            expr_sql = COMMON_SQL["expressions"]["column_alias"].format(
+                expression=expr_sql,
+                alias=alias
+            )
+
+        builder = ExpressionBuilder(self._model)
+        builder._compiled = expr_sql
         return builder
 
     def compile(self) -> str:

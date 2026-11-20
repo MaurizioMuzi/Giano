@@ -1,0 +1,53 @@
+{
+  "table": {
+    "db2": "DTPT03.TRATTAS",
+    "sqlserver": "Tassi"
+  },
+  "columns": {
+    "dataDec": {
+      "db2": "DATADEC",
+      "sqlserver": "DataDec",
+      "logical_type": "date"
+    },
+    "tasPrat": {
+      "db2": "TASPRAT",
+      "sqlserver": "TasPrat",
+      "logical_type": "decimal"
+    },
+    "tasSint": {
+      "db2": "TASSINT",
+      "sqlserver": "TasSint",
+      "logical_type": "decimal"
+    },
+    "tasSnz": {
+      "db2": "TASSANZ",
+      "sqlserver": "TasSanz",
+      "logical_type": "decimal"
+    },
+    "difDilp": {
+      "db2": "DIFDILP",
+      "sqlserver": "DifDilp",
+      "logical_type": "decimal"
+    },
+    "difSand": {
+      "db2": "DIFSAND",
+      "sqlserver": "DifSand",
+      "logical_type": "decimal"
+    },
+    "difSand_2": {
+      "db2": "DIFSAND_2",
+      "sqlserver": "DifSand_2",
+      "logical_type": "decimal"
+    },
+    "tasSanz_2": {
+      "db2": "TASSANZ_2",
+      "sqlserver": "TasSanz_2",
+      "logical_type": "decimal"
+    },
+    "sanz_2024_1": {
+      "db2": "SANZ_2024_1",
+      "sqlserver": "Sanz_2024_1",
+      "logical_type": "decimal"
+    }
+  }
+}

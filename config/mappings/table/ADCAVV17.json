@@ -1,0 +1,37 @@
+{
+  "table": {
+    "db2": "DTPT03.ADCAVV17",
+    "sqlserver": "ADCAVV17"
+  },
+  "columns": {
+    "codErr": {
+      "db2": "CODERR",
+      "sqlserver": "CodErr",
+      "logical_type": "int"
+    },
+    "codErrRuolo": {
+      "db2": "CODERR_RUO",
+      "sqlserver": "CodErrRuolo",
+      "logical_type": "string",
+      "padding": true
+    },
+    "messBreveErr": {
+      "db2": "SERR",
+      "sqlserver": "MessBreveErr",
+      "logical_type": "string",
+      "padding": true
+    },
+    "messEstesaErr": {
+      "db2": "SDESC_ERR",
+      "sqlserver": "MessEstesaErr",
+      "logical_type": "string",
+      "padding": true
+    },
+    "tipoErr": {
+      "db2": "STIP_ERR",
+      "sqlserver": "TipoErr",
+      "logical_type": "string",
+      "padding": true
+    }
+  }
+}

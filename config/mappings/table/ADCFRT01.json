@@ -1,0 +1,325 @@
+{
+  "table": {
+    "db2": "DTPT03.ADCFRT01",
+    "sqlserver": "CreditiInfasati"
+  },
+  "columns": {
+    "gestione": {
+      "db2": "CGES",
+      "sqlserver": "Gestione",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codiceAtto": {
+      "db2": "CATT",
+      "sqlserver": "CodiceAtto",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codiceFiscale": {
+      "db2": "CFIS",
+      "sqlserver": "CodiceFiscale",
+      "logical_type": "string",
+      "padding": true
+    },
+    "sede": {
+      "db2": "CSED",
+      "sqlserver": "Sede",
+      "logical_type": "string",
+      "padding": true
+    },
+    "zona": {
+      "db2": "CZON",
+      "sqlserver": "Zona",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codCentro": {
+      "db2": "CCOP",
+      "sqlserver": "CodCentro",
+      "logical_type": "string",
+      "padding": true
+    },
+    "partitaIva": {
+      "db2": "CIVA",
+      "sqlserver": "PartitaIva",
+      "logical_type": "string",
+      "padding": true
+    },
+    "dataInf": {
+      "db2": "DINF",
+      "sqlserver": "DataInfasamento",
+      "logical_type": "date"
+    },
+    "dataNot": {
+      "db2": "DNOT",
+      "sqlserver": "DataNotifica",
+      "logical_type": "date"
+    },
+    "codDipendente": {
+      "db2": "CDIP",
+      "sqlserver": "CodDipendente",
+      "logical_type": "string",
+      "padding": true
+    },
+    "dataRifCon": {
+      "db2": "DRIFCON",
+      "sqlserver": "DataRifConsolidamento",
+      "logical_type": "int"
+    },
+    "codAzienda": {
+      "db2": "CAZI",
+      "sqlserver": "CodAzienda",
+      "logical_type": "string",
+      "padding": true
+    },
+    "descrizioneAtto": {
+      "db2": "SATT",
+      "sqlserver": "DescrizioneAtto",
+      "logical_type": "string",
+      "padding": true
+    },
+    "annoEmissione": {
+      "db2": "AEMI",
+      "sqlserver": "AnnoEmissione",
+      "logical_type": "int"
+    },
+    "numEmissione": {
+      "db2": "NEMI",
+      "sqlserver": "NumEmissione",
+      "logical_type": "int"
+    },
+    "numInail": {
+      "db2": "NINA",
+      "sqlserver": "NumInail",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codSegnalazione": {
+      "db2": "CSEG",
+      "sqlserver": "CodSegnalazione",
+      "logical_type": "string",
+      "padding": true
+    },
+    "flgDecadenza": {
+      "db2": "FDEC",
+      "sqlserver": "FlgDecadenza",
+      "logical_type": "string",
+      "padding": true
+    },
+    "meseInizioPeriodo": {
+      "db2": "MINIPER",
+      "sqlserver": "MeseInizioPeriodo",
+      "logical_type": "int"
+    },
+    "meseFinePeriodo": {
+      "db2": "MFINPER",
+      "sqlserver": "MeseFinePeriodo",
+      "logical_type": "int"
+    },
+    "dataFallimento": {
+      "db2": "DFAL",
+      "sqlserver": "DataFallimento",
+      "logical_type": "date"
+    },
+    "numSogg": {
+      "db2": "NSGG",
+      "sqlserver": "NumSoggetto",
+      "logical_type": "string",
+      "padding": true
+    },
+    "numRate": {
+      "db2": "NRAT",
+      "sqlserver": "NumRate",
+      "logical_type": "int"
+    },
+    "statoAttivita": {
+      "db2": "CSTAATT",
+      "sqlserver": "StatoAttivita",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codEsattoria": {
+      "db2": "CESA",
+      "sqlserver": "CodEsattoria",
+      "logical_type": "int"
+    },
+    "flgValFiscale": {
+      "db2": "FVALFIS",
+      "sqlserver": "FlgValoreFiscale",
+      "logical_type": "string",
+      "padding": true
+    },
+    "annoRifRuolo": {
+      "db2": "ARIFRUO",
+      "sqlserver": "AnnoRifRuolo",
+      "logical_type": "int"
+    },
+    "numRuolo": {
+      "db2": "NRUO",
+      "sqlserver": "NumRuolo",
+      "logical_type": "int"
+    },
+    "flgEuro": {
+      "db2": "FEUR",
+      "sqlserver": "FlgEuro",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codEsattoriaDel": {
+      "db2": "CESADEL",
+      "sqlserver": "CodEsattoriaDel",
+      "logical_type": "int"
+    },
+    "annoCarico": {
+      "db2": "ACAR",
+      "sqlserver": "AnnoCarico",
+      "logical_type": "int"
+    },
+    "numCarico": {
+      "db2": "NCAR",
+      "sqlserver": "NumCarico",
+      "logical_type": "int"
+    },
+    "numChkCarico": {
+      "db2": "NCHKCAR",
+      "sqlserver": "NumChkCarico",
+      "logical_type": "int"
+    },
+    "dataTransizioneStato": {
+      "db2": "DTRNSTA",
+      "sqlserver": "DataTransizioneStato",
+      "logical_type": "date"
+    },
+    "flgIscrizione": {
+      "db2": "FISC",
+      "sqlserver": "FlgIscrizione",
+      "logical_type": "string",
+      "padding": true
+    },
+    "flgCessione": {
+      "db2": "FCED",
+      "sqlserver": "FlgCessione",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codCausale": {
+      "db2": "CCSL",
+      "sqlserver": "CodCausale",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codFasAmm": {
+      "db2": "CFASAMM",
+      "sqlserver": "CodFasAmm",
+      "logical_type": "string",
+      "padding": true
+    },
+    "statoAzienda": {
+      "db2": "CSTAAZI",
+      "sqlserver": "StatoAzienda",
+      "logical_type": "string",
+      "padding": true
+    },
+    "dataStatoAzienda": {
+      "db2": "DSTAAZI",
+      "sqlserver": "DataStatoAzienda",
+      "logical_type": "date"
+    },
+    "descrizioneAttoBi": {
+      "db2": "SATTBI",
+      "sqlserver": "DescrizioneAttoBi",
+      "logical_type": "string",
+      "padding": true
+    },
+    "timestampInsStato": {
+      "db2": "TMS_INS_CSTAATT",
+      "sqlserver": "TmpInsStatoAtt",
+      "logical_type": "datetime"
+    },
+    "timestampVarStato": {
+      "db2": "TMS_VAR_CSTAATT",
+      "sqlserver": "TmpVarStatoAtt",
+      "logical_type": "datetime"
+    },
+    "tipoAvviso": {
+      "db2": "TIPOAVV",
+      "sqlserver": "TipoAvviso",
+      "logical_type": "string",
+      "padding": true
+    },
+    "annoAvviso": {
+      "db2": "ANNOAVV",
+      "sqlserver": "AnnoAvviso",
+      "logical_type": "int"
+    },
+    "progAvviso": {
+      "db2": "PROGAVV",
+      "sqlserver": "ProgAvviso",
+      "logical_type": "int"
+    },
+    "numPartitaAvviso": {
+      "db2": "NPARAVV",
+      "sqlserver": "NumPartitaAvviso",
+      "logical_type": "int"
+    },
+    "numEspAvviso": {
+      "db2": "NESPAVV",
+      "sqlserver": "NumEspAvviso",
+      "logical_type": "int"
+    },
+    "periodo": {
+      "db2": "PERIODO",
+      "sqlserver": "Periodo",
+      "logical_type": "string",
+      "padding": true
+    },
+    "periodoBi": {
+      "db2": "PERIOBI",
+      "sqlserver": "PeriodoBi",
+      "logical_type": "string",
+      "padding": true
+    },
+    "sedeOrigine": {
+      "db2": "SEDORIG",
+      "sqlserver": "SedeOrigine",
+      "logical_type": "string",
+      "padding": true
+    },
+    "flgSanzioni": {
+      "db2": "FSANZ",
+      "sqlserver": "FlgSanzioni",
+      "logical_type": "string",
+      "padding": true
+    },
+    "flgCessioneRuolo": {
+      "db2": "FCES",
+      "sqlserver": "FlgCessioneRuolo",
+      "logical_type": "string",
+      "padding": true
+    },
+    "flgRateizzazione": {
+      "db2": "FRATEIZZ",
+      "sqlserver": "FlgRateizzazione",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codEsattoriaAvviso": {
+      "db2": "CESAAVV",
+      "sqlserver": "CodEsattoriaAvviso",
+      "logical_type": "int"
+    },
+    "codiceErrore": {
+      "db2": "CODERR",
+      "sqlserver": "CodiceErrore",
+      "logical_type": "string",
+      "padding": true
+    },
+    "flgSanzioniAdr": {
+      "db2": "FSANZADR",
+      "sqlserver": "FlgSanzioniAdr",
+      "logical_type": "string",
+      "padding": true
+    }
+  }
+}

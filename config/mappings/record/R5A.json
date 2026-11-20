@@ -1,0 +1,139 @@
+{
+  "record_type": "R5A",
+  "description": "Record frontespizio ruolo",
+  "record_length": 750,
+  "fields": {
+    "tipoRecord": {
+      "logical_type": "string",
+      "len": 3,
+      "padding": true,
+      "default": "R5A"
+    },
+    "progRecord": {
+      "logical_type": "int",
+      "len": 7,
+      "padding": true
+    },
+    "codEnteImpos": {
+      "logical_type": "int",
+      "len": 5,
+      "padding": true
+    },
+    "codAmbito": {
+      "logical_type": "int",
+      "len": 3,
+      "padding": true
+    },
+    "annoNumRuolo": {
+      "logical_type": "string",
+      "len": 10,
+      "padding": true
+    },
+    "tipoUfficio": {
+      "logical_type": "string",
+      "len": 1,
+      "padding": true
+    },
+    "codUfficio": {
+      "logical_type": "string",
+      "len": 6,
+      "padding": true
+    },
+    "specieRuolo": {
+      "logical_type": "string",
+      "len": 1,
+      "padding": true
+    },
+    "tipoIscriz": {
+      "logical_type": "string",
+      "len": 1,
+      "padding": true
+    },
+    "flagCartel": {
+      "logical_type": "string",
+      "len": 1,
+      "padding": true
+    },
+    "tasso": {
+      "logical_type": "int",
+      "len": 5,
+      "padding": true
+    },
+    "dtVisto": {
+      "logical_type": "int",
+      "len": 8,
+      "padding": true
+    },
+    "fillerR5A": {
+      "logical_type": "string",
+      "len": 1,
+      "padding": true,
+      "default": ""
+    },
+    "cognomeRespProc": {
+      "logical_type": "string",
+      "len": 30,
+      "padding": true,
+      "default": ""
+    },
+    "nomeRespProc": {
+      "logical_type": "string",
+      "len": 30,
+      "padding": true,
+      "default": ""
+    },
+    "dataFineCalcolo": {
+      "logical_type": "int",
+      "len": 8,
+      "padding": true
+    },
+    "fillerR5A_1": {
+      "logical_type": "string",
+      "len": 556,
+      "padding": true,
+      "default": ""
+    },
+    "flagRuoInrata": {
+      "logical_type": "string",
+      "len": 1,
+      "padding": true,
+      "default": ""
+    },
+    "codConv": {
+      "logical_type": "int",
+      "len": 7,
+      "padding": true
+    },
+    "dtVarConv": {
+      "logical_type": "int",
+      "len": 8,
+      "padding": true
+    },
+    "numDtRiscos": {
+      "logical_type": "string",
+      "len": 36,
+      "padding": true,
+      "default": ""
+    },
+    "dtScad1Rata": {
+      "logical_type": "int",
+      "len": 8,
+      "padding": true
+    },
+    "flagEscAgo": {
+      "logical_type": "int",
+      "len": 1,
+      "padding": true
+    },
+    "codAmbitoAvvisi": {
+      "logical_type": "int",
+      "len": 3,
+      "padding": true
+    },
+    "annoNumAvvisi": {
+      "logical_type": "int",
+      "len": 10,
+      "padding": true
+    }
+  }
+}
