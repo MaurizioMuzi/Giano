@@ -1,6 +1,9 @@
 # processes/preparazione_postalizzazione/step_descrizioni_partite.py
+from typing import List, Any
+
 from core.batch_logger import BatchLogger
 from .import descrizioni_config as C
+from .context import PreparazionePostalizzazioneContext
 
 DATA_VUOTA = "00010101"
 
@@ -126,7 +129,7 @@ class Descrizioni:
         }
 
     # ------------------------------------------------------------ dispatcher per tipoavv
-    def valorizza(self, ctx, depth: int) -> None:
+    def valorizza(self, ctx:PreparazionePostalizzazioneContext, depth: int) -> None:
         tipoavv = (ctx.tipoavv or "").strip()
         metodi = self.despar_map.get(tipoavv)
 
@@ -728,26 +731,48 @@ class Descrizioni:
             depth=depth
         )
         t24 = self.engine.get_table_map("ADCAVV24")
+        try:
 
+            rows_t24 = self._db_fetch_t24(ctx, depth=depth)
+
+            if not rows_t24:
+                BatchLogger.error("COUNT-ADCAVV24",
+                                  f"Nessun codice causale trovato su ADCAVV24 con CGES= {ctx.ws_cges} e CATT = {ctx.catt}",
+                                  depth=depth, is_last=True)
+
+
+            ctx.ws_count1 = t24.normalize(rows_t24[0])
+        except Exception as err:
+            BatchLogger.error(
+                "SELECT-AVV24-ERR",
+                f"Errore durante controllo codice causale..': {err}",
+                depth=depth
+            )
+            raise
+
+    # =========================================================================
+    # ACCESSI AL DATABASE (ISOLATI CON TRY-EXCEPT PUNTUALI)
+    # =========================================================================
+    def _db_fetch_t24(self, ctx:PreparazionePostalizzazioneContext, depth: int) -> List[Any]:
+        """Accesso atomico DB: verifica codice causale"""
         query_t24 = (
             self.engine.dataset("ADCAVV24")
             .select("gestione", "codiceAtto", "progrCausale", "codiceCausale", "identificativoAvviso",
                     "codiceAvviso", "timestampIns"
                     )
             .count()
-            .filter_by("codiceCausale","IN", ("21", "22"))
+            .filter_by("codiceCausale", "IN", ("21", "22"))
             .filter_by("gestione", "=", ctx.ws_cges)
             .filter_by("codiceAtto", "=", ctx.catt)
             .with_uncommitted_read()
             .compile_select()
         )
-        rows_t24 = self.engine.fetch(query_t24, depth=depth)
-
-        if not rows_t24:
-            BatchLogger.error("COUNT-ADCAVV24",
-                              f"Nessun codice causale trovato su ADCAVV24 con CGES= {ctx.ws_cges} e CATT = {ctx.catt}",
-                              depth=1, is_last=True)
-            ctx.indic_errore = "X"
-            return
-
-        ctx.ws_count1 = t24.normalize(rows_t24[0])
+        try:
+            return self.engine.fetch(query_t24, depth=depth)
+        except Exception as err:
+            BatchLogger.error(
+                "DB-FETCH-T24-ERR",
+                f"Errore DB durante la SELECT su ADCAVV24 [CGES={ctx.ws_cges}, CATT={ctx.catt}]: {err}",
+                depth=depth
+            )
+            raise
