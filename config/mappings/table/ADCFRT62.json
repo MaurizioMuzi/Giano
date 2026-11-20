@@ -1,0 +1,60 @@
+{
+  "table": {
+    "db2": "DTPT03.ADCFRT62",
+    "sqlserver": "CodFiscBlocc"
+  },
+  "columns": {
+    "codiceFiscale": {
+      "db2": "CFIS",
+      "sqlserver": "CodiceFiscale",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codiceAvviso": {
+      "db2": "CODAVV",
+      "sqlserver": "CodiceAvviso",
+      "logical_type": "string",
+      "padding": true
+    },
+    "identificativoAvviso": {
+      "db2": "IDAVV",
+      "sqlserver": "IdentificativoAvviso",
+      "logical_type": "string",
+      "padding": true
+    },
+    "flagBlocco": {
+      "db2": "FLGBLK",
+      "sqlserver": "FlagBlocco",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codErrore": {
+      "db2": "CODERR",
+      "sqlserver": "CodErrore",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codDipendente": {
+      "db2": "CDIP",
+      "sqlserver": "CodDipendente",
+      "logical_type": "string",
+      "padding": true
+    },
+    "timestampInsInfo": {
+      "db2": "TMSINS",
+      "sqlserver": "TmpInsInfo",
+      "logical_type": "datetime"
+    },
+    "timestampVarInfo": {
+      "db2": "TMSUPD",
+      "sqlserver": "TmpVarInfo",
+      "logical_type": "datetime"
+    },
+    "sede": {
+      "db2": "SEDE",
+      "sqlserver": "Sede",
+      "logical_type": "string",
+      "padding": true
+    }
+  }
+}

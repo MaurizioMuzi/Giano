@@ -1,0 +1,159 @@
+{
+  "table": {
+    "db2": "DTPT03.ADCFRT14",
+    "sqlserver": "AnagraficaAtto"
+  },
+  "columns": {
+    "gestione": {
+      "db2": "CGES",
+      "sqlserver": "Gestione",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codiceAtto": {
+      "db2": "CATT",
+      "sqlserver": "CodiceAtto",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codiceAnag": {
+      "db2": "CANA",
+      "sqlserver": "CodAnag",
+      "logical_type": "string",
+      "padding": true
+    },
+    "partitaIva": {
+      "db2": "CIVA",
+      "sqlserver": "PartitaIva",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codiceFiscale": {
+      "db2": "CFIS",
+      "sqlserver": "CodiceFiscale",
+      "logical_type": "string",
+      "padding": true
+    },
+    "cognome": {
+      "db2": "SCOG",
+      "sqlserver": "Cognome",
+      "logical_type": "string",
+      "padding": true
+    },
+    "nome": {
+      "db2": "SNOM",
+      "sqlserver": "Nome",
+      "logical_type": "string",
+      "padding": true
+    },
+    "sesso": {
+      "db2": "CSES",
+      "sqlserver": "Sesso",
+      "logical_type": "string",
+      "padding": true
+    },
+    "dataNascita": {
+      "db2": "DNAS",
+      "sqlserver": "DataNascita",
+      "logical_type": "date"
+    },
+    "comuneNascita": {
+      "db2": "CCOMNAS",
+      "sqlserver": "ComuneNascita",
+      "logical_type": "string",
+      "padding": true
+    },
+    "provinciaNascita": {
+      "db2": "CPRONAS",
+      "sqlserver": "ProvinciaNascita",
+      "logical_type": "string",
+      "padding": true
+    },
+    "indirizzo": {
+      "db2": "SIND",
+      "sqlserver": "Indirizzo",
+      "logical_type": "string",
+      "padding": true
+    },
+    "numeroCivico": {
+      "db2": "NCIV",
+      "sqlserver": "NumeroCivico",
+      "logical_type": "string",
+      "padding": true
+    },
+    "letteraCivico": {
+      "db2": "CCIV",
+      "sqlserver": "LetteraCivico",
+      "logical_type": "string",
+      "padding": true
+    },
+    "numeroChilometro": {
+      "db2": "NKIM",
+      "sqlserver": "NumeroChilometro",
+      "logical_type": "int"
+    },
+    "cap": {
+      "db2": "CCAP",
+      "sqlserver": "Cap",
+      "logical_type": "int"
+    },
+    "localita": {
+      "db2": "SLOCDOM",
+      "sqlserver": "Localita",
+      "logical_type": "string",
+      "padding": true
+    },
+    "siglaProvincia": {
+      "db2": "CPRODOM",
+      "sqlserver": "SiglaProvincia",
+      "logical_type": "string",
+      "padding": true
+    },
+    "comuneDomicilio": {
+      "db2": "CCOMDOM",
+      "sqlserver": "ComuneDomicilio",
+      "logical_type": "string",
+      "padding": true
+    },
+    "indAnagrafeTrib": {
+      "db2": "SINDATR",
+      "sqlserver": "IndiAnagrafeTrib",
+      "logical_type": "string",
+      "padding": true
+    },
+    "capAnagrafeTrib": {
+      "db2": "CCAPATR",
+      "sqlserver": "CapAnagrafeTrib",
+      "logical_type": "int"
+    },
+    "siglaProvAnagrafeTrib": {
+      "db2": "CPROATR",
+      "sqlserver": "SiglaProvAnagrafeTrib",
+      "logical_type": "string",
+      "padding": true
+    },
+    "locAnagrafeTrib": {
+      "db2": "SLOCATR",
+      "sqlserver": "LocAnagrafeTrib",
+      "logical_type": "string",
+      "padding": true
+    },
+    "comuneAnagrafeTrib": {
+      "db2": "CCOMATR",
+      "sqlserver": "ComuneAnagrafeTrib",
+      "logical_type": "string",
+      "padding": true
+    },
+    "dataValidDoc": {
+      "db2": "DDOM",
+      "sqlserver": "DataValidDoc",
+      "logical_type": "date"
+    },
+    "pec": {
+      "db2": "SINDPEC",
+      "sqlserver": "Pec",
+      "logical_type": "string",
+      "padding": true
+    }
+  }
+}

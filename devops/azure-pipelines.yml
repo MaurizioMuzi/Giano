@@ -1,0 +1,45 @@
+name: $(Date:yyyyMMdd)$(rev:.r)
+
+variables:
+- group: AB03656_common_vars_SC
+
+trigger:
+  batch: true
+  branches:
+    include:
+    - develop
+  paths:
+    exclude:
+    - devops/*
+
+resources:
+  repositories:
+  - repository: CommonTemplates #Repository contenente i templates
+    type: git
+    endpoint: FTI-service-connection
+    name: GestioneCicloDiVitaSw/CommonTemplatesYaml
+    ref: refs/heads/develop
+  
+  - repository: PythonScript
+    endpoint: FTI-service-connection
+    name: GestioneArchitetture/PythonScript
+    ref: refs/heads/main
+    type: git
+
+stages:
+#BUILD Phase
+- template: build-stages/batch/python/python-build-stages.yaml@CommonTemplates
+  parameters:
+    commonVariableGroup: AB03656_common_vars_SC
+    enableDebug: true
+    linuxPoolName: linuxpoolcontainersvil
+    checkoutTestHandler: true
+    contentToCopy: |
+      config/**
+
+- template: release-stages/batch/release-stages.yaml@CommonTemplates
+  parameters:
+    commonVariableGroup: AB03656_common_vars_SC
+    placeHolderVariableGroup: placeholder_AB03656_TEST
+    enableDebug: true
+    linuxPoolName: linuxpoolcontainersvil

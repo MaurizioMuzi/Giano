@@ -37,6 +37,10 @@
       },
       "delete_joined": {
         "statement": "DELETE FROM {target_table} WHERE EXISTS (SELECT 1 FROM {source_table} WHERE {join_condition}{filter_condition})"
+      },
+      "functions": {
+        "date_sub_days": "({column} - {days} DAYS)",
+        "date_add_days": "({column} + {days} DAYS)"
       }
     },
     "SQLSERVER": {
@@ -76,6 +80,10 @@
       },
       "delete_joined": {
         "statement": "DELETE t FROM {target_table} t INNER JOIN {source_table} s ON {join_condition}{filter_condition}"
+      },
+      "functions": {
+        "date_sub_days": "DATEADD(DAY, -{days}, {column})",
+        "date_add_days": "DATEADD(DAY, {days}, {column})"
       }
     }
   },

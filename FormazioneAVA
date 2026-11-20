@@ -1,7 +1,7 @@
 @echo off
 REM ==============================================================================
 REM run_batch.bat
-REM Script di avvio per le elaborazioni batch Python (main.py)
+REM Script di avvio per le elaborazioni batch Python (AB03656.py)
 REM Le configurazioni e l'ambiente vengono recuperati dal file JSON esterno.
 REM
 REM Utilizzo: run_batch.bat <operation>
@@ -51,8 +51,8 @@ echo ===========================================================================
 REM 3. Posizionamento nella directory del file batch/progetto
 cd /d "%~dp0"
 
-REM 4. Esecuzione dello script orchestratore main.py
-"%PYTHON_HOME311%\python.exe" main.py "%OPERATION%"
+REM 4. Esecuzione dello script orchestratore AB03656.py
+"%PYTHON_HOME311%\python.exe" AB03656.py "%OPERATION%"
 
 set EXIT_CODE=%errorlevel%
 

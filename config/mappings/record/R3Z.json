@@ -1,0 +1,166 @@
+{
+  "record_type": "R3Z",
+  "description": "Record di coda R3Z",
+  "record_length": 750,
+  "fields": {
+    "tipoRecord": {
+      "logical_type": "string",
+      "len": 3,
+      "padding": true,
+      "default": "R3Z"
+    },
+    "codEnteImpos": {
+      "logical_type": "int",
+      "len": 5,
+      "padding": true
+    },
+    "codAmbito": {
+      "logical_type": "int",
+      "len": 3,
+      "padding": true
+    },
+    "idFile": {
+      "logical_type": "string",
+      "len": 20,
+      "padding": true
+    },
+    "dataCreazione": {
+      "logical_type": "int",
+      "len": 8,
+      "padding": true
+    },
+    "dataConsegna": {
+      "logical_type": "int",
+      "len": 8,
+      "padding": true
+    },
+    "codDivOp": {
+      "logical_type": "string",
+      "len": 3,
+      "padding": true,
+      "default": "EUR"
+    },
+    "numRecR5A": {
+      "logical_type": "int",
+      "len": 7,
+      "padding": true
+    },
+    "numRecR5B": {
+      "logical_type": "int",
+      "len": 7,
+      "padding": true
+    },
+    "numRecR7A": {
+      "logical_type": "int",
+      "len": 7,
+      "padding": true
+    },
+    "numRecR7B": {
+      "logical_type": "int",
+      "len": 7,
+      "padding": true
+    },
+    "numRecR7C": {
+      "logical_type": "int",
+      "len": 7,
+      "padding": true
+    },
+    "numRecR7D": {
+      "logical_type": "int",
+      "len": 7,
+      "padding": true
+    },
+    "numRecR7E": {
+      "logical_type": "int",
+      "len": 7,
+      "padding": true
+    },
+    "numRecR7F": {
+      "logical_type": "int",
+      "len": 7,
+      "padding": true
+    },
+    "numRecR7G": {
+      "logical_type": "int",
+      "len": 7,
+      "padding": true
+    },
+    "numRecR5Z": {
+      "logical_type": "int",
+      "len": 7,
+      "padding": true
+    },
+    "numRecConcess": {
+      "logical_type": "int",
+      "len": 7,
+      "padding": true
+    },
+    "totImp": {
+      "logical_type": "int",
+      "len": 15,
+      "padding": true
+    },
+    "totSan": {
+      "logical_type": "int",
+      "len": 15,
+      "padding": true
+    },
+    "totInt": {
+      "logical_type": "int",
+      "len": 15,
+      "padding": true
+    },
+    "totAlt": {
+      "logical_type": "int",
+      "len": 15,
+      "padding": true
+    },
+    "totAggAnt": {
+      "logical_type": "int",
+      "len": 15,
+      "padding": true
+    },
+    "totAgg": {
+      "logical_type": "int",
+      "len": 15,
+      "padding": true
+    },
+    "totArr": {
+      "logical_type": "int",
+      "len": 15,
+      "padding": true
+    },
+    "totCarTrb": {
+      "logical_type": "int",
+      "len": 15,
+      "padding": true
+    },
+    "fillerR3Z": {
+      "logical_type": "string",
+      "len": 481,
+      "padding": true,
+      "default": ""
+    },
+    "numRecR7L": {
+      "logical_type": "int",
+      "len": 7,
+      "padding": true
+    },
+    "segnoTotaleArrot": {
+      "logical_type": "string",
+      "len": 1,
+      "padding": true,
+      "default": ""
+    },
+    "numRecUltAnag": {
+      "logical_type": "int",
+      "len": 7,
+      "padding": true
+    },
+    "numRecAnagCoin": {
+      "logical_type": "int",
+      "len": 7,
+      "padding": true
+    }
+  }
+}

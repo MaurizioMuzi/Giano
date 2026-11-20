@@ -1,0 +1,64 @@
+{
+  "table": {
+    "db2": "DTPT03.ADCAVV02",
+    "sqlserver": "ADCAVV02"
+  },
+  "columns": {
+    "codBelfiore": {
+      "db2": "CBELF",
+      "sqlserver": "CodBelfiore",
+      "logical_type": "string",
+      "padding": true
+    },
+    "progr": {
+      "db2": "PROGR",
+      "sqlserver": "Progr",
+      "logical_type": "int"
+    },
+    "flgValidita": {
+      "db2": "FLGVAL",
+      "sqlserver": "FlgValid",
+      "logical_type": "string",
+      "padding": true
+    },
+    "codConcessione": {
+      "db2": "CESA",
+      "sqlserver": "CodConcessione",
+      "logical_type": "int"
+    },
+    "codProvincia": {
+      "db2": "CPRO",
+      "sqlserver": "CodProvincia",
+      "logical_type": "string",
+      "padding": true
+    },
+    "cap": {
+      "db2": "CAP",
+      "sqlserver": "Cap",
+      "logical_type": "string",
+      "padding": true
+    },
+    "descComuneIta": {
+      "db2": "DESC_ITA",
+      "sqlserver": "DescComuneIta",
+      "logical_type": "string",
+      "padding": true
+    },
+    "descComuneTds": {
+      "db2": "DESC_ITA",
+      "sqlserver": "DescComuneTds",
+      "logical_type": "string",
+      "padding": true
+    },
+    "timestampIns": {
+      "db2": "TMS_INS",
+      "sqlserver": "TmpIns",
+      "logical_type": "datetime"
+    },
+    "timestampAnn": {
+      "db2": "TMS_ANN",
+      "sqlserver": "TmpAnn",
+      "logical_type": "datetime"
+    }
+  }
+}

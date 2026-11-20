@@ -1,0 +1,56 @@
+{
+  "record_type": "R3A",
+  "description": "Record di testa R3A",
+  "record_length": 750,
+  "fields": {
+    "tipoRecord": {
+      "logical_type": "string",
+      "len": 3,
+      "padding": true,
+      "default": "R3A"
+    },
+    "codEnteImpos": {
+      "logical_type": "int",
+      "len": 5,
+      "padding": true
+    },
+    "codAmbito": {
+      "logical_type": "int",
+      "len": 3,
+      "padding": true
+    },
+    "idFile": {
+      "logical_type": "string",
+      "len": 20,
+      "padding": true
+    },
+    "dataCreazione": {
+      "logical_type": "int",
+      "len": 8,
+      "padding": true
+    },
+    "dataConsegna": {
+      "logical_type": "int",
+      "len": 8,
+      "padding": true
+    },
+    "codDivOp": {
+      "logical_type": "string",
+      "len": 3,
+      "padding": true,
+      "default": "EUR"
+    },
+    "rele": {
+      "logical_type": "string",
+      "len": 3,
+      "padding": true,
+      "default": "R05"
+    },
+    "R3ATappo": {
+      "logical_type": "string",
+      "len": 697,
+      "padding": true,
+      "default": ""
+    }
+  }
+}

@@ -1,0 +1,102 @@
+{
+  "record_type": "R7E",
+  "description": "Record rate articolo ",
+  "record_length": 750,
+  "fields": {
+    "tipoRecord": {
+      "logical_type": "string",
+      "len": 3,
+      "padding": true,
+      "default": "R7G"
+    },
+    "progRecord": {
+      "logical_type": "int",
+      "len": 7,
+      "padding": true
+    },
+    "codEnteImpos": {
+      "logical_type": "int",
+      "len": 5,
+      "padding": true
+    },
+    "codAmbito": {
+      "logical_type": "int",
+      "len": 3,
+      "padding": true
+    },
+    "annoNumRuolo": {
+      "logical_type": "string",
+      "len": 10,
+      "padding": true
+    },
+    "identPartita": {
+      "logical_type": "string",
+      "len": 96,
+      "padding": true,
+      "default": ""
+    },
+    "tipoImposta": {
+      "logical_type": "string",
+      "len": 3,
+      "padding": true,
+      "default": ""
+    },
+    "progTrb": {
+      "logical_type": "int",
+      "len": 3,
+      "padding": true
+    },
+    "codTrb": {
+      "logical_type": "string",
+      "len": 4,
+      "padding": true,
+      "default": ""
+    },
+    "progrRata01": { "logical_type": "int", "len": 2, "padding": true, "default": 0 },
+    "impRata01":   { "logical_type": "int", "len": 15, "padding": true, "default": 0 },
+    "progrRata02": { "logical_type": "int", "len": 2, "padding": true, "default": 0 },
+    "impRata02":   { "logical_type": "int", "len": 15, "padding": true, "default": 0 },
+    "progrRata03": { "logical_type": "int", "len": 2, "padding": true, "default": 0 },
+    "impRata03":   { "logical_type": "int", "len": 15, "padding": true, "default": 0 },
+    "progrRata04": { "logical_type": "int", "len": 2, "padding": true, "default": 0 },
+    "impRata04":   { "logical_type": "int", "len": 15, "padding": true, "default": 0 },
+    "progrRata05": { "logical_type": "int", "len": 2, "padding": true, "default": 0 },
+    "impRata05":   { "logical_type": "int", "len": 15, "padding": true, "default": 0 },
+    "progrRata06": { "logical_type": "int", "len": 2, "padding": true, "default": 0 },
+    "impRata06":   { "logical_type": "int", "len": 15, "padding": true, "default": 0 },
+    "progrRata07": { "logical_type": "int", "len": 2, "padding": true, "default": 0 },
+    "impRata07":   { "logical_type": "int", "len": 15, "padding": true, "default": 0 },
+    "progrRata08": { "logical_type": "int", "len": 2, "padding": true, "default": 0 },
+    "impRata08":   { "logical_type": "int", "len": 15, "padding": true, "default": 0 },
+    "progrRata09": { "logical_type": "int", "len": 2, "padding": true, "default": 0 },
+    "impRata09":   { "logical_type": "int", "len": 15, "padding": true, "default": 0 },
+    "progrRata10": { "logical_type": "int", "len": 2, "padding": true, "default": 0 },
+    "impRata10":   { "logical_type": "int", "len": 15, "padding": true, "default": 0 },
+    "progrRata11": { "logical_type": "int", "len": 2, "padding": true, "default": 0 },
+    "impRata11":   { "logical_type": "int", "len": 15, "padding": true, "default": 0 },
+    "progrRata12": { "logical_type": "int", "len": 2, "padding": true, "default": 0 },
+    "impRata12":   { "logical_type": "int", "len": 15, "padding": true, "default": 0 },
+    "progrRata13": { "logical_type": "int", "len": 2, "padding": true, "default": 0 },
+    "impRata13":   { "logical_type": "int", "len": 15, "padding": true, "default": 0 },
+    "progrRata14": { "logical_type": "int", "len": 2, "padding": true, "default": 0 },
+    "impRata14":   { "logical_type": "int", "len": 15, "padding": true, "default": 0 },
+    "progrRata15": { "logical_type": "int", "len": 2, "padding": true, "default": 0 },
+    "impRata15":   { "logical_type": "int", "len": 15, "padding": true, "default": 0 },
+    "progrRata16": { "logical_type": "int", "len": 2, "padding": true, "default": 0 },
+    "impRata16":   { "logical_type": "int", "len": 15, "padding": true, "default": 0 },
+    "progrRata17": { "logical_type": "int", "len": 2, "padding": true, "default": 0 },
+    "impRata17":   { "logical_type": "int", "len": 15, "padding": true, "default": 0 },
+    "progrRata18": { "logical_type": "int", "len": 2, "padding": true, "default": 0 },
+    "impRata18":   { "logical_type": "int", "len": 15, "padding": true, "default": 0 },
+    "progrRata19": { "logical_type": "int", "len": 2, "padding": true, "default": 0 },
+    "impRata19":   { "logical_type": "int", "len": 15, "padding": true, "default": 0 },
+    "progrRata20": { "logical_type": "int", "len": 2, "padding": true, "default": 0 },
+    "impRata20":   { "logical_type": "int", "len": 15, "padding": true, "default": 0 },
+    "R7GTappo": {
+      "logical_type": "string",
+      "len": 276,
+      "padding": true,
+      "default": ""
+    }
+  }
+}
