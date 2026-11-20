@@ -54,14 +54,6 @@ class CalcolaRuoliStep:
                         depth=depth + 1
                     )
 
-                    # 3. CICLA-TAB01: elaborazione partite
-                    self.step_R5B.execute_controllo_flusso(
-                        ctx=ctx,
-                        row_t02=row_t02,
-                        depth=depth + 1
-                    )
-
-
             # Qui andranno gli step di dettaglio ruolo (R5B, R7A, R7B, R7L, R5Z...)
 
         except Exception as err:
